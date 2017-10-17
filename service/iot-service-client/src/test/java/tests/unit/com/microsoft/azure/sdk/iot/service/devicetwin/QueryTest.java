@@ -8,6 +8,7 @@ package tests.unit.com.microsoft.azure.sdk.iot.service.devicetwin;
 import com.microsoft.azure.sdk.iot.service.IotHubConnectionString;
 import com.microsoft.azure.sdk.iot.service.auth.IotHubServiceSasToken;
 import com.microsoft.azure.sdk.iot.service.devicetwin.Query;
+import com.microsoft.azure.sdk.iot.service.devicetwin.QueryOptions;
 import com.microsoft.azure.sdk.iot.service.devicetwin.QueryResponse;
 import com.microsoft.azure.sdk.iot.service.devicetwin.QueryType;
 import com.microsoft.azure.sdk.iot.service.exceptions.IotHubException;
@@ -76,9 +77,6 @@ public class QueryTest
 
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "requestQueryType"));
         assertEquals(QueryType.UNKNOWN, Deencapsulation.getField(testQuery, "responseQueryType"));
-
-        assertNull(Deencapsulation.getField(testQuery, "requestContinuationToken"));
-        assertNull(Deencapsulation.getField(testQuery, "responseContinuationToken"));
 
         assertNull(Deencapsulation.getField(testQuery, "queryResponse"));
     }
@@ -176,9 +174,6 @@ public class QueryTest
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "requestQueryType"));
         assertEquals(QueryType.UNKNOWN, Deencapsulation.getField(testQuery, "responseQueryType"));
 
-        assertNull(Deencapsulation.getField(testQuery, "requestContinuationToken"));
-        assertNull(Deencapsulation.getField(testQuery, "responseContinuationToken"));
-
         assertNull(Deencapsulation.getField(testQuery, "queryResponse"));
     }
 
@@ -235,52 +230,44 @@ public class QueryTest
     @Test
     public void continueQuerySetsTokenAndSends() throws IOException, IotHubException
     {
-
         //arrange
         final String testToken = UUID.randomUUID().toString();
         Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
         setupSendQuery(testQuery, testToken);
         testQuery.sendQueryRequest(mockIotHubConnectionString, mockUrl, mockHttpMethod, DEFAULT_TIMEOUT);
 
+        QueryOptions options = new QueryOptions();
+        options.setContinuationToken(testToken);
+        options.setPageSize(DEFAULT_PAGE_SIZE);
+
+        new NonStrictExpectations()
+        {
+            {
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, testToken);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testToken;
+            }
+        };
+
         //act
-        Deencapsulation.invoke(testQuery, "continueQuery", testToken);
+        Deencapsulation.invoke(testQuery, "continueQuery", new Class[] {QueryOptions.class}, options);
 
         //assert
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "requestContinuationToken"));
+        assertEquals(testToken, testQuery.getContinuationToken());
 
         new Verifications()
         {
             {
                 new HttpRequest(mockUrl, mockHttpMethod, (byte[]) any);
-                times = 2;
+                times = 1;
                 mockHttpRequest.setHeaderField("x-ms-max-item-count", String.valueOf(DEFAULT_PAGE_SIZE));
-                times = 2;
+                times = 1;
                 mockHttpRequest.setHeaderField("x-ms-continuation", testToken);
                 times = 1;
-                mockHttpRequest.setHeaderField(anyString, anyString);
-                minTimes = 10;
             }
         };
-    }
-
-    @Test
-    public void continueQuerySetsPageSize() throws IOException, IotHubException
-    {
-        //arrange
-        final String testToken = UUID.randomUUID().toString();
-        final int testPageSize = 10;
-
-        Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
-
-        setupSendQuery(testQuery, testToken);
-        testQuery.sendQueryRequest(mockIotHubConnectionString, mockUrl, mockHttpMethod, DEFAULT_TIMEOUT);
-
-        //act
-        Deencapsulation.invoke(testQuery, "continueQuery", testToken, testPageSize);
-
-        //assert
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "requestContinuationToken"));
-        assertEquals(testPageSize, (int) Deencapsulation.getField(testQuery, "pageSize"));
     }
 
     //Tests_SRS_QUERY_25_006: [If the pagesize is zero or negative the constructor shall throw an IllegalArgumentException.]
@@ -333,6 +320,12 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
+
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, testToken);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testToken;
             }
         };
 
@@ -354,7 +347,7 @@ public class QueryTest
             }
         };
 
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
+        assertEquals(testToken, testQuery.getContinuationToken());
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "responseQueryType"));
     }
 
@@ -374,6 +367,12 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
+
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, testToken);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testToken;
             }
         };
 
@@ -395,7 +394,7 @@ public class QueryTest
             }
         };
 
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
+        assertEquals(testToken, testQuery.getContinuationToken());
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "responseQueryType"));
     }
 
@@ -417,29 +416,40 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
+
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, testToken);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testToken;
             }
         };
 
+        QueryOptions options = new QueryOptions();
+        options.setPageSize(newPageSize);
+        options.setContinuationToken(testToken);
+        Deencapsulation.setField(testQuery, "iotHubConnectionString", mockIotHubConnectionString);
+        Deencapsulation.setField(testQuery, "url", mockUrl);
+        Deencapsulation.setField(testQuery, "httpMethod", mockHttpMethod);
+        Deencapsulation.setField(testQuery, "timeout", 20);
+
         //act
-        Deencapsulation.invoke(testQuery, "sendQueryRequest",  mockIotHubConnectionString, mockUrl, mockHttpMethod, (long)0);
-        Deencapsulation.invoke(testQuery, "continueQuery", testToken, newPageSize);
+        Deencapsulation.invoke(testQuery, "continueQuery", options);
 
         //assert
         new Verifications()
         {
             {
                 new HttpRequest(mockUrl, mockHttpMethod, (byte[]) any);
-                times = 2;
+                times = 1;
                 mockHttpRequest.setHeaderField("x-ms-max-item-count", String.valueOf(newPageSize));
                 times = 1;
                 mockHttpRequest.setHeaderField("x-ms-continuation", testToken);
                 times = 1;
-                mockHttpRequest.setHeaderField(anyString, anyString);
-                minTimes = 5;
             }
         };
 
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
+        assertEquals(testToken, testQuery.getContinuationToken());
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "responseQueryType"));
     }
 
@@ -462,26 +472,30 @@ public class QueryTest
             }
         };
 
+        Deencapsulation.setField(testQuery, "iotHubConnectionString", mockIotHubConnectionString);
+        Deencapsulation.setField(testQuery, "url", mockUrl);
+        Deencapsulation.setField(testQuery, "httpMethod", mockHttpMethod);
+        Deencapsulation.setField(testQuery, "timeout", 20);
+
+        QueryOptions options = new QueryOptions();
+        options.setPageSize(DEFAULT_PAGE_SIZE);
+
         //act
-        Deencapsulation.invoke(testQuery, "sendQueryRequest",  mockIotHubConnectionString, mockUrl, mockHttpMethod, (long)0);
-        Deencapsulation.invoke(testQuery, "continueQuery", String.class);
+        Deencapsulation.invoke(testQuery, "continueQuery", new Class[] {QueryOptions.class}, options);
 
         //assert
         new Verifications()
         {
             {
                 new HttpRequest(mockUrl, mockHttpMethod, (byte[]) any);
-                times = 2;
+                times = 1;
                 mockHttpRequest.setHeaderField("x-ms-max-item-count", String.valueOf(DEFAULT_PAGE_SIZE));
-                times = 2;
+                times = 1;
                 mockHttpRequest.setHeaderField("x-ms-continuation", anyString);
                 times = 0;
-                mockHttpRequest.setHeaderField(anyString, anyString);
-                minTimes = 10;
             }
         };
 
-        assertEquals(testToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "responseQueryType"));
     }
 
@@ -502,16 +516,13 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
-                Deencapsulation.newInstance(QueryResponse.class, anyString);
+                Deencapsulation.newInstance(QueryResponse.class, anyString, anyString);
                 result = new IOException("test");
             }
         };
 
         //act
         Deencapsulation.invoke(testQuery, "sendQueryRequest", mockIotHubConnectionString, mockUrl, mockHttpMethod, (long) 0);
-
-        //assert
-        assertEquals(testResponseToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
     }
 
     //Tests_SRS_QUERY_25_010: [The method shall read the continuation token (x-ms-continuation) and reponse type (x-ms-item-type) from the HTTP Headers and save it.]
@@ -532,6 +543,12 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
+
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, testResponseToken);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testResponseToken;
             }
         };
 
@@ -539,7 +556,7 @@ public class QueryTest
         Deencapsulation.invoke(testQuery, "sendQueryRequest", mockIotHubConnectionString, mockUrl, mockHttpMethod, (long) 0);
 
         //assert
-        assertEquals(testResponseToken, Deencapsulation.getField(testQuery, "responseContinuationToken"));
+        assertEquals(testResponseToken, testQuery.getContinuationToken());
     }
 
     @Test
@@ -557,6 +574,12 @@ public class QueryTest
             {
                 mockHttpResponse.getHeaderFields();
                 result = testHeaderResponseMap;
+
+                Deencapsulation.newInstance(QueryResponse.class, new Class[] {String.class, String.class}, anyString, null);
+                result = mockedQueryResponse;
+
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = null;
             }
         };
 
@@ -564,7 +587,7 @@ public class QueryTest
         Deencapsulation.invoke(testQuery, "sendQueryRequest", mockIotHubConnectionString, mockUrl, mockHttpMethod, (long) 0);
 
         //assert
-        assertNull(Deencapsulation.getField(testQuery, "responseContinuationToken"));
+        assertNull(testQuery.getContinuationToken());
     }
 
     @Test
@@ -588,7 +611,6 @@ public class QueryTest
         Deencapsulation.invoke(testQuery, "sendQueryRequest", mockIotHubConnectionString, mockUrl, mockHttpMethod, (long) 0);
 
         //assert
-        assertNull(Deencapsulation.getField(testQuery, "responseContinuationToken"));
         assertEquals(DEFAULT_QUERY_TYPE, Deencapsulation.getField(testQuery, "responseQueryType"));
     }
 
@@ -727,35 +749,6 @@ public class QueryTest
         testQuery.sendQueryRequest(mockIotHubConnectionString, mockUrl, null, (long) 0);
     }
 
-    //Tests_SRS_QUERY_25_014: [The method shall return the continuation token found in response to a query (which can be null).]
-    @Test
-    public void getTokenGets() throws IotHubException, IOException
-    {
-        //arrange
-        final String testResponseToken = UUID.randomUUID().toString();
-        final Map<String, String> testHeaderResponseMap = new HashMap<>();
-        testHeaderResponseMap.put("x-ms-continuation", testResponseToken);
-        testHeaderResponseMap.put("x-ms-item-type", DEFAULT_QUERY_TYPE.getValue());
-
-        Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
-
-        new NonStrictExpectations()
-        {
-            {
-                mockHttpResponse.getHeaderFields();
-                result = testHeaderResponseMap;
-            }
-        };
-
-        Deencapsulation.invoke(testQuery, "sendQueryRequest", mockIotHubConnectionString, mockUrl, mockHttpMethod, (long) 0);
-
-        //act
-        String actualContinuationToken = Deencapsulation.invoke(testQuery, "getContinuationToken");
-
-        //assert
-        assertEquals(actualContinuationToken, testResponseToken);
-    }
-
     //Tests_SRS_QUERY_25_015: [The method shall return true if next element from QueryResponse is available and false otherwise.]
     @Test
     public void hasNextReturnsTrueIfNextExists() throws IotHubException, IOException
@@ -828,6 +821,8 @@ public class QueryTest
 
         Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
 
+        Deencapsulation.setField(testQuery, "queryResponse", mockedQueryResponse);
+
         new NonStrictExpectations()
         {
             {
@@ -835,6 +830,8 @@ public class QueryTest
                 result = testHeaderResponseMap;
                 mockedQueryResponse.hasNext();
                 result = false;
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = testResponseToken;
             }
         };
 
@@ -923,5 +920,51 @@ public class QueryTest
 
         //act
         Object next = Deencapsulation.invoke(testQuery, "next");
+    }
+
+    //Tests_SRS_QUERY_34_024: [This method shall return the results of calling sendQueryRequest(...) with a null continuation token.]
+    @Test
+    public void sendQueryResultWithoutContinuationToken() throws IOException, IotHubException
+    {
+        //arrange
+        Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
+        long expectedTimeout = 20;
+
+        new StrictExpectations(testQuery)
+        {
+            {
+                Deencapsulation.invoke(testQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, long.class, String.class}, (IotHubConnectionString) any, (URL) any, (HttpMethod) any, anyLong, null);
+                result = mockedQueryResponse;
+            }
+        };
+
+        //act
+        testQuery.sendQueryRequest(mockIotHubConnectionString, mockUrl, mockHttpMethod, expectedTimeout);
+    }
+
+    //Tests_SRS_QUERY_34_025: [This method shall return the latest query response object's continuation token.]
+    @Test
+    public void getContinuationTokenSuccess()
+    {
+        //arrange
+        Query testQuery = Deencapsulation.newInstance(Query.class, DEFAULT_QUERY, DEFAULT_PAGE_SIZE, DEFAULT_QUERY_TYPE);
+        String expectedContinuationToken = "some continuation token";
+
+        Deencapsulation.setField(testQuery, "queryResponse", mockedQueryResponse);
+
+
+        new NonStrictExpectations()
+        {
+            {
+                Deencapsulation.invoke(mockedQueryResponse, "getContinuationToken");
+                result = expectedContinuationToken;
+            }
+        };
+
+        //act
+        String actualContinuationToken = testQuery.getContinuationToken();
+
+        //assert
+        assertEquals(expectedContinuationToken, actualContinuationToken);
     }
 }

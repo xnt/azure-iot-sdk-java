@@ -13,10 +13,13 @@ import com.microsoft.azure.sdk.iot.service.transport.http.HttpMethod;
 import com.microsoft.azure.sdk.iot.service.transport.http.HttpResponse;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+
+import static com.microsoft.azure.sdk.iot.service.transport.http.HttpMethod.GET;
 
 /*
     Sql style query IotHub for twin, jobs, device jobs or raw data
@@ -31,9 +34,6 @@ public class Query
     private String query;
     private boolean isSqlQuery;
 
-    private String requestContinuationToken;
-    private String responseContinuationToken;
-
     private QueryType requestQueryType;
     private QueryType responseQueryType;
 
@@ -43,6 +43,7 @@ public class Query
     private URL url;
     private HttpMethod httpMethod;
     private long timeout;
+
 
     /**
      * Constructor for Query
@@ -71,8 +72,6 @@ public class Query
 
         this.pageSize = pageSize;
         this.query = query;
-        this.requestContinuationToken = null;
-        this.responseContinuationToken = null;
         this.requestQueryType = requestQueryType;
         this.responseQueryType = QueryType.UNKNOWN;
         this.queryResponse = null;
@@ -102,47 +101,18 @@ public class Query
 
         this.pageSize = pageSize;
         this.query = null;
-        this.requestContinuationToken = null;
-        this.responseContinuationToken = null;
         this.requestQueryType = requestQueryType;
         this.responseQueryType = QueryType.UNKNOWN;
         this.queryResponse = null;
         this.isSqlQuery = false;
     }
 
-    /**
-     * Continuation token to be used for next query request
-     * @param continuationToken token to be used for next query request. Can be {@code null}
-     * @throws IOException if sending the request is unsuccessful because of input parameters
-     * @throws IotHubException if sending the request is unsuccessful at the Hub
-     */
-    private void continueQuery(String continuationToken) throws IOException, IotHubException
+    private void continueQuery(QueryOptions options) throws IOException, IotHubException
     {
-        //Codes_SRS_QUERY_25_005: [The method shall update the request continuation token and request pagesize which shall be used for processing subsequent query request.]
-        this.requestContinuationToken = continuationToken;
-        //Codes_SRS_QUERY_25_018: [The method shall send the query request again.]
-        sendQueryRequest(this.iotHubConnectionString, this.url, this.httpMethod, this.timeout);
-    }
+        this.pageSize = options.getPageSize();
 
-    /**
-     * Continuation token and page size to be used for next query request
-     * @param continuationToken token to be used for next query request. Can be {@code null}
-     * @param pageSize size batch for this query
-     * @throws IOException if sending the request is unsuccessful because of input parameters
-     * @throws IotHubException if sending the request is unsuccessful at the Hub
-     */
-    private void continueQuery(String continuationToken, int pageSize) throws IOException, IotHubException
-    {
-        if (pageSize <= 0)
-        {
-            //Codes_SRS_QUERY_25_006: [If the pagesize is zero or negative the constructor shall throw an IllegalArgumentException.]
-            throw new IllegalArgumentException("Page Size cannot be zero or negative");
-        }
-
-        this.pageSize = pageSize;
-        this.requestContinuationToken = continuationToken;
         //Codes_SRS_QUERY_25_018: [The method shall send the query request again.]
-        sendQueryRequest(this.iotHubConnectionString, this.url, this.httpMethod, this.timeout);
+        sendQueryRequest(this.iotHubConnectionString, this.url, this.httpMethod, this.timeout, options.getContinuationToken());
     }
 
     /**
@@ -156,9 +126,31 @@ public class Query
      * @throws IotHubException If HTTP response other then status ok is received
      */
     public QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString,
-                                   URL url,
-                                   HttpMethod method,
-                                   Long timeoutInMs) throws IOException, IotHubException
+                                          URL url,
+                                          HttpMethod method,
+                                          Long timeoutInMs) throws IOException, IotHubException
+    {
+        //Codes_SRS_QUERY_34_024: [This method shall return the results of calling sendQueryRequest(...) with a null continuation token.]
+        return this.sendQueryRequest(iotHubConnectionString, url, method, timeoutInMs, null);
+    }
+
+
+    /**
+     * Sends request for the query to the IotHub
+     * @param iotHubConnectionString Hub Connection String
+     * @param url URL to Query on
+     * @param method HTTP Method for the requesting a query
+     * @param timeoutInMs Maximum time to wait for the hub to respond
+     * @param continuationToken the continuation token for the query. May be null if there is no continuation token to provide
+     * @return QueryResponse object which holds the response Iterator
+     * @throws IOException If any of the input parameters are not valid
+     * @throws IotHubException If HTTP response other then status ok is received
+     */
+    protected QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString,
+                          URL url,
+                          HttpMethod method,
+                          Long timeoutInMs,
+                          String continuationToken) throws IOException, IotHubException
     {
         if (iotHubConnectionString == null || url == null || method == null)
         {
@@ -175,9 +167,9 @@ public class Query
         byte[] payload = null;
         Map<String, String> queryHeaders = new HashMap<>();
 
-        if (this.requestContinuationToken != null)
+        if (continuationToken != null)
         {
-            queryHeaders.put(CONTINUATION_TOKEN_KEY, requestContinuationToken);
+            queryHeaders.put(CONTINUATION_TOKEN_KEY, continuationToken);
         }
         //Codes_SRS_QUERY_25_007: [The method shall set the http headers x-ms-continuation and x-ms-max-item-count with request continuation token and page size if they were not null.]
         queryHeaders.put(PAGE_SIZE_KEY, String.valueOf(pageSize));
@@ -187,8 +179,7 @@ public class Query
         if (isSqlQuery)
         {
             //Codes_SRS_QUERY_25_008: [The method shall obtain the serilaized query by using QueryRequestParser.]
-            QueryRequestParser requestParser = new QueryRequestParser(this.query);
-            payload = requestParser.toJson().getBytes();
+            payload = new QueryRequestParser(this.query).toJson().getBytes();
         }
         else
         {
@@ -198,15 +189,15 @@ public class Query
         //Codes_SRS_QUERY_25_009: [The method shall use the provided HTTP Method and send request to IotHub with the serialized body over the provided URL.]
         HttpResponse httpResponse = DeviceOperations.request(iotHubConnectionString, url, method, payload, null, timeoutInMs);
 
-        this.responseContinuationToken = null;
         Map<String, String> headers = httpResponse.getHeaderFields();
         //Codes_SRS_QUERY_25_010: [The method shall read the continuation token (x-ms-continuation) and reponse type (x-ms-item-type) from the HTTP Headers and save it.]
+        String newContinuationToken = null;
         for (Map.Entry<String, String> header : headers.entrySet())
         {
             switch (header.getKey())
             {
                 case CONTINUATION_TOKEN_KEY:
-                    this.responseContinuationToken = header.getValue();
+                    newContinuationToken = header.getValue();
                     break;
                 case ITEM_TYPE_KEY:
                     this.responseQueryType = QueryType.fromString(header.getValue());
@@ -229,18 +220,9 @@ public class Query
         }
 
         //Codes_SRS_QUERY_25_013: [The method shall create a QueryResponse object with the contents from the response body and save it.]
-        this.queryResponse = new QueryResponse(new String(httpResponse.getBody()));
-        return this.queryResponse;
-    }
+        this.queryResponse = new QueryResponse(new String(httpResponse.getBody()), newContinuationToken);
 
-    /**
-     * Getter for the continuation token received on response
-     * @return continuation token. Can be {@code null}.
-     */
-    private String getContinuationToken()
-    {
-        //Codes_SRS_QUERY_25_014: [The method shall return the continuation token found in response to a query (which can be null).]
-        return this.responseContinuationToken;
+        return this.queryResponse;
     }
 
     /**
@@ -253,10 +235,13 @@ public class Query
     {
         //Codes_SRS_QUERY_25_015: [The method shall return true if next element from QueryResponse is available and false otherwise.]
         boolean isNextAvailable = this.queryResponse.hasNext();
-        if (!isNextAvailable && this.getContinuationToken() != null)
+        if (!isNextAvailable && this.queryResponse.getContinuationToken() != null)
         {
             //Codes_SRS_QUERY_25_021: [If no further query response is available, then this method shall continue to request query to IotHub if continuation token is available.]
-            this.continueQuery(this.getContinuationToken());
+            QueryOptions options = new QueryOptions();
+            options.setContinuationToken(this.queryResponse.getContinuationToken());
+            options.setPageSize(this.pageSize);
+            this.continueQuery(options);
             return this.queryResponse.hasNext();
         }
         else
@@ -285,6 +270,11 @@ public class Query
            //Codes_SRS_QUERY_25_022: [The method shall check if any further elements are available by calling hasNext and if none is available then it shall throw NoSuchElementException.]
            throw new NoSuchElementException();
        }
+    }
 
+    public String getContinuationToken()
+    {
+        //Codes_SRS_QUERY_34_025: [This method shall return the latest query response object's continuation token.]
+        return this.queryResponse.getContinuationToken();
     }
 }

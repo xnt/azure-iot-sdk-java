@@ -16,8 +16,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 public class DeviceTwin
 {
@@ -373,23 +372,19 @@ public class DeviceTwin
      */
     public synchronized Query queryTwin(String sqlQuery, Integer pageSize) throws IotHubException, IOException
     {
-        if (sqlQuery == null || sqlQuery.length() == 0)
+        if (sqlQuery == null || sqlQuery.isEmpty())
         {
-            //Codes_SRS_DEVICETWIN_25_047: [ The method shall throw IllegalArgumentException if the query is null or empty.]
-            throw new IllegalArgumentException("Query cannot be null or empty");
+            //Codes_SRS_DEVICETWIN_25_047: [The method shall throw IllegalArgumentException if the query is null or empty.]
+            throw new IllegalArgumentException("SQL query cannot be null or empty");
         }
 
         if (pageSize <= 0)
         {
-            //Codes_SRS_DEVICETWIN_25_048: [ The method shall throw IllegalArgumentException if the page size is zero or negative.]
-            throw new IllegalArgumentException("pagesize cannot be negative or zero");
+            //Codes_SRS_DEVICETWIN_25_048: [The method shall throw IllegalArgumentException if the page size is zero or negative.]
+            throw new IllegalArgumentException("Page size cannot be 0 or negative");
         }
 
-        //Codes_SRS_DEVICETWIN_25_050: [ The method shall create a new Query Object of Type TWIN. ]
         Query deviceTwinQuery = new Query(sqlQuery, pageSize, QueryType.TWIN);
-
-        //Codes_SRS_DEVICETWIN_25_049: [ The method shall build the URL for this operation by calling getUrlTwinQuery ]
-        //Codes_SRS_DEVICETWIN_25_051: [ The method shall send a Query Request to IotHub as HTTP Method Post on the query Object by calling sendQueryRequest.]
         deviceTwinQuery.sendQueryRequest(iotHubConnectionString, iotHubConnectionString.getUrlTwinQuery(), HttpMethod.POST, USE_DEFAULT_TIMEOUT);
         return deviceTwinQuery;
     }
@@ -403,8 +398,19 @@ public class DeviceTwin
      */
     public synchronized Query queryTwin(String sqlQuery) throws IotHubException, IOException
     {
-        //Codes_SRS_DEVICETWIN_25_052: [ If the pageSize if not provided then a default pageSize of 100 is used for the query.]
         return this.queryTwin(sqlQuery, DEFAULT_PAGE_SIZE);
+    }
+
+    public synchronized QueryCollection queryTwinCollection(String sqlQuery) throws IotHubException, IOException
+    {
+        //Codes_SRS_DEVICETWIN_34_069: [This function shall return the results of calling queryTwinCollection(sqlQuery, DEFAULT_PAGE_SIZE).]
+        return this.queryTwinCollection(sqlQuery, DEFAULT_PAGE_SIZE);
+    }
+
+    public synchronized QueryCollection queryTwinCollection(String sqlQuery, Integer pageSize) throws IotHubException, IOException
+    {
+        //Codes_SRS_DEVICETWIN_34_070: [This function shall return a new QueryCollection object of type TWIN with the provided sql query and page size.]
+        return new QueryCollection(sqlQuery, pageSize, QueryType.TWIN);
     }
 
     /**
@@ -450,23 +456,81 @@ public class DeviceTwin
         {
             //Codes_SRS_DEVICETWIN_25_059: [ The method shall parse the next element from the query response as Twin Document using TwinParser and provide the response on DeviceTwinDevice.]
             String twinJson = (String) nextObject;
-            TwinParser twinParser = new TwinParser();
-            twinParser.enableTags();
-            twinParser.updateTwin(twinJson);
-
-            DeviceTwinDevice deviceTwinDevice = new DeviceTwinDevice(twinParser.getDeviceId());
-            deviceTwinDevice.setVersion(twinParser.getVersion());
-            deviceTwinDevice.setETag(twinParser.getETag());
-            deviceTwinDevice.setTags(twinParser.getTagsMap());
-            deviceTwinDevice.setDesiredProperties(twinParser.getDesiredPropertyMap());
-            deviceTwinDevice.setReportedProperties(twinParser.getReportedPropertyMap());
-
-            return deviceTwinDevice;
+            return jsonToDeviceTwinDevice(twinJson);
         }
         else
         {
             //Codes_SRS_DEVICETWIN_25_060: [ If the next element from the query response is an object other than String, then this method shall throw IOException ]
             throw new IOException("Received a response that could not be parsed");
+        }
+    }
+
+    public synchronized boolean hasNextDeviceTwinCollection(QueryCollection deviceTwinQueryCollection) throws IotHubException, IOException
+    {
+        //Codes_SRS_DEVICETWIN_34_071: [This function shall call hasNextDeviceTwinCollection(deviceTwinQueryCollection, queryOptions) where queryOptions has the deviceTwinQueryCollection's current page size.]
+        QueryOptions options = new QueryOptions();
+        options.setPageSize(deviceTwinQueryCollection.getPageSize());
+        return this.hasNextDeviceTwinCollection(deviceTwinQueryCollection, options);
+    }
+
+    public synchronized boolean hasNextDeviceTwinCollection(QueryCollection deviceTwinQueryCollection, QueryOptions options) throws IotHubException, IOException
+    {
+        if (deviceTwinQueryCollection == null)
+        {
+            //Codes_SRS_DEVICETWIN_34_072: [If the provided deviceTwinQueryCollection is null, this function shall throw a new IllegalArgumentException.]
+            throw new IllegalArgumentException("Query cannot be null");
+        }
+
+        //Codes_SRS_DEVICETWIN_34_073: [This function shall continue the query by sending the query request with the current connection string.]
+        deviceTwinQueryCollection.sendQueryRequest(this.iotHubConnectionString, this.iotHubConnectionString.getUrlTwinQuery(), HttpMethod.POST, USE_DEFAULT_TIMEOUT, options);
+
+        //Codes_SRS_DEVICETWIN_34_074: [This function shall return if the continued query has a next set.]
+        return deviceTwinQueryCollection.hasNext(options);
+    }
+
+    public synchronized QueryCollectionResponse<DeviceTwinDevice> getNextDeviceTwinCollection(QueryCollection deviceTwinQueryCollection) throws IOException, IotHubException, NoSuchElementException
+    {
+        //Codes_SRS_DEVICETWIN_34_075: [This function shall call getNextDeviceTwinCollection(deviceTwinQueryCollection, queryOptions) where queryOptions has the deviceTwinQueryCollection's current page size.]
+        QueryOptions options = new QueryOptions();
+        options.setPageSize(deviceTwinQueryCollection.getPageSize());
+        return this.getNextDeviceTwinCollection(deviceTwinQueryCollection, options);
+    }
+
+    public synchronized QueryCollectionResponse<DeviceTwinDevice> getNextDeviceTwinCollection(QueryCollection deviceTwinQueryCollection, QueryOptions options) throws IOException, IotHubException, NoSuchElementException
+    {
+        if (deviceTwinQueryCollection == null)
+        {
+            //Codes_SRS_DEVICETWIN_34_076: [If the provided deviceTwinQueryCollection is null, an IllegalArgumentException shall be thrown.]
+            throw new IllegalArgumentException("Query cannot be null");
+        }
+
+        if (!this.hasNextDeviceTwinCollection(deviceTwinQueryCollection, options))
+        {
+            //Codes_SRS_DEVICETWIN_34_077: [If the provided deviceTwinQueryCollection has no next set to give, this function shall return null.]
+            return null;
+        }
+
+        QueryCollectionResponse<DeviceTwinDevice> response = null;
+        try
+        {
+            //Codes_SRS_DEVICETWIN_34_078: [If the provided deviceTwinQueryCollection has a next set to give, this function shall retrieve that set from deviceTwinQueryCollection, cast its contents to DeviceTwinDevice objects, and return it in a QueryCollectionResponse object.]
+            response = (QueryCollectionResponse<DeviceTwinDevice>) deviceTwinQueryCollection.next(options);
+
+            ArrayList<DeviceTwinDevice> deviceTwinDevices = new ArrayList<>();
+
+            Iterator<?> responseCollection = response.getCollection();
+            while (responseCollection.hasNext())
+            {
+                String twinJson = (String) responseCollection.next();
+                deviceTwinDevices.add(jsonToDeviceTwinDevice(twinJson));
+            }
+
+            //Codes_SRS_DEVICETWIN_34_079: [The returned QueryCollectionResponse object shall contain the continuation token needed to retrieve the next set with.]
+            return new QueryCollectionResponse<>(deviceTwinDevices.iterator(), response.getContinuationToken());
+        }
+        catch (ClassCastException e)
+        {
+            throw new IOException("Could not parse the response");
         }
     }
 
@@ -514,5 +578,21 @@ public class DeviceTwin
 
         // Codes_SRS_DEVICETWIN_21_068: [The scheduleUpdateTwin shall return the created instance of the Job class ]
         return job;
+    }
+
+    private DeviceTwinDevice jsonToDeviceTwinDevice(String json) throws IOException
+    {
+        TwinParser twinParser = new TwinParser();
+        twinParser.enableTags();
+        twinParser.updateTwin(json);
+
+        DeviceTwinDevice deviceTwinDevice = new DeviceTwinDevice(twinParser.getDeviceId());
+        deviceTwinDevice.setVersion(twinParser.getVersion());
+        deviceTwinDevice.setETag(twinParser.getETag());
+        deviceTwinDevice.setTags(twinParser.getTagsMap());
+        deviceTwinDevice.setDesiredProperties(twinParser.getDesiredPropertyMap());
+        deviceTwinDevice.setReportedProperties(twinParser.getReportedPropertyMap());
+
+        return deviceTwinDevice;
     }
 }

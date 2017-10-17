@@ -7,7 +7,6 @@ package tests.integration.com.microsoft.azure.sdk.iot.iothubservices;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.microsoft.azure.sdk.iot.deps.util.*;
 import com.microsoft.azure.sdk.iot.device.DeviceClient;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.Device;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.Property;
@@ -39,7 +38,7 @@ public class DeviceTwinIT
     // Max time to wait to see it on Hub
     private static final long MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB = 200; // 0.2 sec
 
-    private static final long MAXIMUM_TIME_FOR_IOTHUB_PROPAGATION_BETWEEN_DEVICE_SERVICE_CLIENTS = MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB*10; // 2 sec
+    private static final long MAXIMUM_TIME_FOR_IOTHUB_PROPAGATION_BETWEEN_DEVICE_SERVICE_CLIENTS = MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB * 10; // 2 sec
 
     //Max time to wait before timing out test
     private static final long MAX_MILLISECS_TIMEOUT_KILL_TEST = MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB + 50000; // 50 secs
@@ -96,7 +95,7 @@ public class DeviceTwinIT
             DeviceState state = (DeviceState) context;
 
             //On failure, Don't update status any further
-            if ((status == OK || status == OK_EMPTY ) && state.deviceTwinStatus != STATUS.FAILURE)
+            if ((status == OK || status == OK_EMPTY) && state.deviceTwinStatus != STATUS.FAILURE)
             {
                 state.deviceTwinStatus = STATUS.SUCCESS;
             }
@@ -139,7 +138,7 @@ public class DeviceTwinIT
 
         synchronized void createNewReportedProperties(int maximumPropertiesToCreate)
         {
-            for( int i = 0; i < maximumPropertiesToCreate; i++)
+            for (int i = 0; i < maximumPropertiesToCreate; i++)
             {
                 UUID randomUUID = UUID.randomUUID();
                 this.setReportedProp(new Property(PROPERTY_KEY + randomUUID, PROPERTY_VALUE + randomUUID));
@@ -178,7 +177,7 @@ public class DeviceTwinIT
     {
         devicesUnderTest = new DeviceState[MAX_DEVICES];
 
-        for (int i = 0 ; i < MAX_DEVICES; i++)
+        for (int i = 0; i < MAX_DEVICES; i++)
         {
             devicesUnderTest[i] = new DeviceState();
             String deviceIdMqtt = "java-device-twin-e2e-test-mqtt".concat(UUID.randomUUID().toString());
@@ -191,7 +190,7 @@ public class DeviceTwinIT
 
     private void removeMultipleDevices() throws IOException, IotHubException, InterruptedException
     {
-        for (int i = 0 ; i < MAX_DEVICES; i++)
+        for (int i = 0; i < MAX_DEVICES; i++)
         {
             tearDownTwin(devicesUnderTest[i]);
             registryManager.removeDevice(devicesUnderTest[i].sCDeviceForRegistryManager.getDeviceId());
@@ -290,7 +289,7 @@ public class DeviceTwinIT
     }
 
     @Before
-    public void setUpNewDevice() throws IOException , IotHubException, NoSuchAlgorithmException, URISyntaxException, InterruptedException
+    public void setUpNewDevice() throws IOException, IotHubException, NoSuchAlgorithmException, URISyntaxException, InterruptedException
     {
         deviceUnderTest = new DeviceState();
         String deviceIdMqtt = "java-device-twin-e2e-test-mqtt".concat(UUID.randomUUID().toString());
@@ -300,13 +299,13 @@ public class DeviceTwinIT
     }
 
     @After
-    public void tearDownNewDevice() throws IOException , IotHubException
+    public void tearDownNewDevice() throws IOException, IotHubException
     {
         tearDownTwin(deviceUnderTest);
         registryManager.removeDevice(deviceUnderTest.sCDeviceForRegistryManager.getDeviceId());
     }
 
-    private int readReportedProperties(DeviceState deviceState, String startsWithKey, String startsWithValue) throws IOException , IotHubException, InterruptedException
+    private int readReportedProperties(DeviceState deviceState, String startsWithKey, String startsWithValue) throws IOException, IotHubException, InterruptedException
     {
         int totalCount = 0;
         Thread.sleep(MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB);
@@ -324,7 +323,7 @@ public class DeviceTwinIT
         return totalCount;
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSendReportedProperties() throws IOException, IotHubException, InterruptedException
     {
         // arrange
@@ -343,7 +342,7 @@ public class DeviceTwinIT
         assertEquals(MAX_PROPERTIES_TO_TEST.intValue(), actualReportedPropFound);
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSendReportedPropertiesMultiThreaded() throws IOException, IotHubException, InterruptedException
     {
         // arrange
@@ -383,7 +382,7 @@ public class DeviceTwinIT
         assertEquals(MAX_PROPERTIES_TO_TEST.intValue(), actualReportedPropFound);
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSendReportedPropertiesSequentially() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -404,7 +403,7 @@ public class DeviceTwinIT
 
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testUpdateReportedProperties() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -428,7 +427,7 @@ public class DeviceTwinIT
         assertEquals(MAX_PROPERTIES_TO_TEST.intValue(), actualReportedPropFound);
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testUpdateReportedPropertiesMultiThreaded() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -479,7 +478,7 @@ public class DeviceTwinIT
     }
 
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testUpdateReportedPropertiesSequential() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -506,7 +505,7 @@ public class DeviceTwinIT
         assertEquals(MAX_PROPERTIES_TO_TEST.intValue(), actualReportedPropFound);
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSubscribeToDesiredProperties() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -542,7 +541,7 @@ public class DeviceTwinIT
         }
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSubscribeToDesiredPropertiesMultiThreaded() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -600,7 +599,7 @@ public class DeviceTwinIT
         }
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testSubscribeToDesiredPropertiesSequentially() throws IOException, InterruptedException, IotHubException
     {
         // arrange
@@ -635,7 +634,7 @@ public class DeviceTwinIT
         }
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testAddTagUpdates() throws IOException, InterruptedException, IotHubException, NoSuchAlgorithmException, URISyntaxException
     {
         addMultipleDevices();
@@ -666,7 +665,7 @@ public class DeviceTwinIT
         removeMultipleDevices();
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testUpdateTagUpdates() throws IOException, InterruptedException, IotHubException, NoSuchAlgorithmException, URISyntaxException
     {
         addMultipleDevices();
@@ -709,7 +708,7 @@ public class DeviceTwinIT
         removeMultipleDevices();
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testUpdateDesiredUpdates() throws IOException, InterruptedException, IotHubException, NoSuchAlgorithmException, URISyntaxException
     {
         addMultipleDevices();
@@ -752,7 +751,7 @@ public class DeviceTwinIT
         removeMultipleDevices();
     }
 
-    @Test (timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
+    @Test(timeout = MAX_MILLISECS_TIMEOUT_KILL_TEST)
     public void testGetTwinUpdates() throws IOException, InterruptedException, IotHubException, NoSuchAlgorithmException, URISyntaxException
     {
         addMultipleDevices();
@@ -825,19 +824,11 @@ public class DeviceTwinIT
         final String queryPropertyValue = PROPERTY_VALUE_QUERY + UUID.randomUUID().toString();
         final double actualNumOfDevices = MAX_DEVICES;
 
-        for (int i = 0; i < MAX_DEVICES; i++)
-        {
-            Set<Pair> desiredProperties = new HashSet<>();
-            desiredProperties.add(new Pair(queryProperty, queryPropertyValue));
-            devicesUnderTest[i].sCDeviceForTwin.setDesiredProperties(desiredProperties);
-
-            sCDeviceTwin.updateTwin(devicesUnderTest[i].sCDeviceForTwin);
-            devicesUnderTest[i].sCDeviceForTwin.clearTwin();
-        }
+        setDesiredProperties(queryProperty, queryPropertyValue);
 
         // Raw Query for multiple devices having same property
         final String select = "properties.desired." + queryProperty + " AS " + queryProperty + "," + " COUNT() AS numberOfDevices";
-        final String groupBy = "properties.desired." + queryProperty ;
+        final String groupBy = "properties.desired." + queryProperty;
         final SqlQuery sqlQuery = SqlQuery.createSqlQuery(select, SqlQuery.FromType.DEVICES, null, groupBy);
         Query rawTwinQuery = scRawTwinQueryClient.query(sqlQuery.getQuery(), PAGE_SIZE);
 
@@ -896,7 +887,7 @@ public class DeviceTwinIT
                 {
                     // Raw Query for multiple devices having same property
                     final String select = "properties.desired." + queryProperty + " AS " + queryProperty + "," + " COUNT() AS numberOfDevices";
-                    final String groupBy = "properties.desired." + queryProperty ;
+                    final String groupBy = "properties.desired." + queryProperty;
                     final SqlQuery sqlQuery = SqlQuery.createSqlQuery(select, SqlQuery.FromType.DEVICES, null, groupBy);
                     Query rawTwinQuery = scRawTwinQueryClient.query(sqlQuery.getQuery(), PAGE_SIZE);
 
@@ -930,7 +921,7 @@ public class DeviceTwinIT
                 {
                     // Raw Query for multiple devices having same property
                     final String select = "properties.desired." + queryPropertyEven + " AS " + queryPropertyEven + "," + " COUNT() AS numberOfDevices";
-                    final String groupBy = "properties.desired." + queryPropertyEven ;
+                    final String groupBy = "properties.desired." + queryPropertyEven;
                     final SqlQuery sqlQuery = SqlQuery.createSqlQuery(select, SqlQuery.FromType.DEVICES, null, groupBy);
                     Query rawTwinQuery = scRawTwinQueryClient.query(sqlQuery.getQuery(), PAGE_SIZE);
 
@@ -971,15 +962,7 @@ public class DeviceTwinIT
         final String queryProperty = PROPERTY_KEY_QUERY + UUID.randomUUID().toString();
         final String queryPropertyValue = PROPERTY_VALUE_QUERY + UUID.randomUUID().toString();
 
-        for (int i = 0; i < MAX_DEVICES; i++)
-        {
-            Set<Pair> desiredProperties = new HashSet<>();
-            desiredProperties.add(new Pair(queryProperty, queryPropertyValue));
-            devicesUnderTest[i].sCDeviceForTwin.setDesiredProperties(desiredProperties);
-
-            sCDeviceTwin.updateTwin(devicesUnderTest[i].sCDeviceForTwin);
-            devicesUnderTest[i].sCDeviceForTwin.clearTwin();
-        }
+        setDesiredProperties(queryProperty, queryPropertyValue);
 
         // Query multiple devices having same property
         final String where = "is_defined(properties.desired." + queryProperty + ")";
@@ -1002,6 +985,78 @@ public class DeviceTwinIT
         }
         assertFalse(sCDeviceTwin.hasNextDeviceTwin(twinQuery));
         removeMultipleDevices();
+    }
+
+    @Test
+    public void testQueryTwinWithContinuationToken() throws IOException, InterruptedException, IotHubException, NoSuchAlgorithmException, URISyntaxException
+    {
+        if (PAGE_SIZE >= MAX_DEVICES)
+        {
+            fail("Configurations for this test are invalid. MAX_DEVICES must be larger than PAGE_SIZE for this scenario to be tested.");
+        }
+
+        addMultipleDevices();
+
+        // Add same desired on multiple devices
+        final String queryProperty = PROPERTY_KEY_QUERY + UUID.randomUUID().toString();
+        final String queryPropertyValue = PROPERTY_VALUE_QUERY + UUID.randomUUID().toString();
+        setDesiredProperties(queryProperty, queryPropertyValue);
+
+        // Query multiple devices having same property
+        final String where = "is_defined(properties.desired." + queryProperty + ")";
+        SqlQuery sqlQuery = SqlQuery.createSqlQuery("*", SqlQuery.FromType.DEVICES, where, null);
+        Thread.sleep(MAXIMUM_TIME_FOR_IOTHUB_PROPAGATION_BETWEEN_DEVICE_SERVICE_CLIENTS);
+        Query twinQuery = sCDeviceTwin.queryTwin(sqlQuery.getQuery(), PAGE_SIZE);
+
+        // Run a query until a continuation token is generated (after the second page is retrieved). Save that token
+        // and save the third page of query results
+        ArrayList<DeviceTwinDevice> queriedTwinDevices = new ArrayList<>();
+        String continuationToken = null;
+        int deviceTwinDevicesRetrievedFromSecondPage = 0;
+        for (int deviceIndex = 0; (deviceIndex < PAGE_SIZE * 2) && (deviceIndex < MAX_DEVICES); deviceIndex++)
+        {
+            queriedTwinDevices.add(sCDeviceTwin.getNextDeviceTwin(twinQuery));
+
+            if (deviceIndex >= PAGE_SIZE)
+            {
+                deviceTwinDevicesRetrievedFromSecondPage++;
+            }
+
+            if (deviceIndex == 0)
+            {
+                //grab continuation token so that the second page of query results can be queried twice. Once in this loop,
+                // and once by a separate query below. The query results being the same prove that the continuation token works
+                continuationToken = twinQuery.getContinuationToken();
+            }
+        }
+
+        // Re-run the same query using the saved continuation token, expecting to receive the same page of results
+        ArrayList<DeviceTwinDevice> twiceQueriedDeviceTwinDevices = new ArrayList<>();
+        QueryOptions options = new QueryOptions();
+        options.setContinuationToken(continuationToken);
+
+        //page size can be changed when continuing a query. Adding one here to test that
+        options.setPageSize(PAGE_SIZE + 1);
+        QueryCollection twinQueryToReRun = sCDeviceTwin.queryTwinCollection(sqlQuery.getQuery());
+        QueryCollectionResponse<DeviceTwinDevice> response = sCDeviceTwin.getNextDeviceTwinCollection(twinQueryToReRun, options);
+        while (response.getCollection().hasNext())
+        {
+            twiceQueriedDeviceTwinDevices.add((DeviceTwinDevice) response.getCollection().next());
+        }
+
+        // cleanup
+        removeMultipleDevices();
+
+        // Assert
+        assertEquals(PAGE_SIZE + 1, twiceQueriedDeviceTwinDevices.size());
+        int secondPageIndex = PAGE_SIZE;
+        for (int deviceTwinDeviceIndex = 0; deviceTwinDeviceIndex < deviceTwinDevicesRetrievedFromSecondPage; deviceTwinDeviceIndex++)
+        {
+
+            DeviceTwinDevice expectedDeviceTwinDevice = queriedTwinDevices.get(secondPageIndex + deviceTwinDeviceIndex);
+            DeviceTwinDevice actualDeviceTwinDevice = twiceQueriedDeviceTwinDevices.get(deviceTwinDeviceIndex);
+            assertEquals(expectedDeviceTwinDevice.getDeviceId(), actualDeviceTwinDevice.getDeviceId());
+        }
     }
 
     @Test
@@ -1196,5 +1251,18 @@ public class DeviceTwinIT
         x509DeviceUnderTest.sCDeviceForRegistryManager.setThumbprint(x509Thumbprint, x509Thumbprint);
         x509DeviceUnderTest.sCDeviceForRegistryManager = registryManager.addDevice(x509DeviceUnderTest.sCDeviceForRegistryManager);
         setUpTwinForX509(x509DeviceUnderTest, protocol);
+    }
+
+    private void setDesiredProperties(String queryProperty, String queryPropertyValue) throws IOException, IotHubException
+    {
+        for (int i = 0; i < MAX_DEVICES; i++)
+        {
+            Set<Pair> desiredProperties = new HashSet<>();
+            desiredProperties.add(new Pair(queryProperty, queryPropertyValue));
+            devicesUnderTest[i].sCDeviceForTwin.setDesiredProperties(desiredProperties);
+
+            sCDeviceTwin.updateTwin(devicesUnderTest[i].sCDeviceForTwin);
+            devicesUnderTest[i].sCDeviceForTwin.clearTwin();
+        }
     }
 }

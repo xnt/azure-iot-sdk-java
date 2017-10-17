@@ -14,13 +14,13 @@ public class Query
     public Query(String query, int pageSize, QueryType requestQueryType) throws IllegalArgumentException;
     public Query(int pageSize, QueryType requestQueryType) throws IllegalArgumentException;
 
-    private void continueQuery(String continuationToken) throws IOException, IotHubException, NoSuchElementException;
-    private void continueQuery(String continuationToken, int pageSize) throws IOException, IotHubException, NoSuchElementException;
-
     public QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString, URL url, HttpMethod method, Long timeoutInMs) throws IOException, IotHubException;
-    private String getContinuationToken();    
+    protected QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString, URL url, HttpMethod method, Long timeoutInMs, String continuationToken) throws IOException, IotHubException;
+
     public boolean hasNext() throws IOException, IotHubException, NoSuchElementException;
     public Object next() throws IOException, IotHubException, NoSuchElementException;
+    
+    public String getContinuationToken();
 }
 ```
 
@@ -61,6 +61,14 @@ private void continueQuery(String continuationToken, int pageSize) throws IOExce
 ```java
 public QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString, URL url, HttpMethod method, Long timeoutInMs) throws IOException, IotHubException;  
 ```
+
+**SRS_QUERY_34_024: [**This method shall return the results of calling sendQueryRequest(...) with a null continuation token.**]**
+
+
+```java
+protected QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionString, URL url, HttpMethod method, Long timeoutInMs, String continuationToken) throws IOException, IotHubException;
+```
+
 **SRS_QUERY_25_019: [**This method shall throw IllegalArgumentException if any of the parameters are null or empty.**]**
 
 **SRS_QUERY_25_020: [**This method shall save all the parameters for future use.**]**
@@ -79,13 +87,6 @@ public QueryResponse sendQueryRequest(IotHubConnectionString iotHubConnectionStr
 
 **SRS_QUERY_25_013: [**The method shall create a `QueryResponse` object with the contents from the response body and save it.**]**
 
-### getContinuationToken
-
-```java
-private String getContinuationToken();   
-```
-
-**SRS_QUERY_25_014: [**The method shall return the continuation token found in response to a query (which can be null).**]**
 
 ### hasNext
 
@@ -106,3 +107,12 @@ public Object next() throws IOException, IotHubException, NoSuchElementException
 **SRS_QUERY_25_016: [**The method shall return the next element for this QueryResponse.**]**
 
 **SRS_QUERY_25_022: [**The method shall check if any further elements are available by calling `hasNext` and if none is available then it shall throw NoSuchElementException.**]**
+
+
+
+### getContinuationToken
+```java
+public String getContinuationToken();
+```
+
+**SRS_QUERY_34_025: [**This method shall return the latest query response object's continuation token.**]**
