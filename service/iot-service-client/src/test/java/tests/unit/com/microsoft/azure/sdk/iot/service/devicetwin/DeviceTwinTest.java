@@ -895,7 +895,7 @@ public class DeviceTwinTest
             {
                 Deencapsulation.newInstance(Query.class, new Class[] {String.class, Integer.class, QueryType.class}, anyString, anyInt, QueryType.TWIN);
                 times = 1;
-                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, HttpMethod.POST, any, (String) null);
+                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, any, any, (String) null);
                 times = 1;
             }
         };
@@ -959,7 +959,7 @@ public class DeviceTwinTest
             {
                 Deencapsulation.newInstance(Query.class, new Class[] {String.class, Integer.class, QueryType.class}, anyString, anyInt, QueryType.TWIN);
                 result = mockedQuery;
-                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, HttpMethod.POST, any, (String) null);
+                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, any, any, (String) null);
                 result = new IotHubException();
             }
         };
@@ -996,7 +996,7 @@ public class DeviceTwinTest
         new Verifications()
         {
             {
-                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, HttpMethod.POST, any, (String) null);
+                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, any, any, (String) null);
                 times = 1;
             }
         };
@@ -1099,7 +1099,7 @@ public class DeviceTwinTest
         new Verifications()
         {
             {
-                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, HttpMethod.POST, any, (String) null);
+                Deencapsulation.invoke(mockedQuery, "sendQueryRequest", new Class[] {IotHubConnectionString.class, URL.class, HttpMethod.class, Long.class, String.class}, any, any, any, any, (String) null);
                 times = 1;
             }
         };
