@@ -87,6 +87,8 @@ public class DeviceMethodIT
         }
 
         x509DeviceMQTT = new DeviceTestManager(registryManager, DEVICE_ID_NAME.concat("mqtt-x509"), IotHubClientProtocol.MQTT, publicKeyCert, privateKey, x509Thumbprint);
+
+        registryManager.close();
     }
 
     @Before

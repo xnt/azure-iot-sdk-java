@@ -155,6 +155,11 @@ public class TransportClientSendMessagesIT
             }
             registryManager.close();
         }
+
+        if (registryManager != null)
+        {
+            registryManager.close();
+        }
     }
 
     @Test

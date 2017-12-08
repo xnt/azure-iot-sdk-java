@@ -78,6 +78,8 @@ public class DeviceMethodMqttWsIT
         {
             devices.add(new DeviceTestManager(registryManager, DEVICE_ID_NAME.concat("-" + i), IotHubClientProtocol.MQTT_WS));
         }
+
+        registryManager.close();
     }
 
     @Before

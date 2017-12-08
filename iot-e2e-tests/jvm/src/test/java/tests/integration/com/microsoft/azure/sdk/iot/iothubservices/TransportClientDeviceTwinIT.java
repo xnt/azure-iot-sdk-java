@@ -213,6 +213,11 @@ public class TransportClientDeviceTwinIT
             Thread.sleep(MAXIMUM_TIME_TO_WAIT_FOR_IOTHUB);
         }
 
+        if (registryManager != null)
+        {
+            registryManager.close();
+        }
+
         registryManager = null;
         sCDeviceTwin = null;
     }

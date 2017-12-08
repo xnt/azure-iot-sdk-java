@@ -35,7 +35,8 @@ import java.util.concurrent.Executors;
 public class RegistryManager
 {
     private final Integer DEFAULT_HTTP_TIMEOUT_MS = 24000;
-    private final ExecutorService executor = Executors.newFixedThreadPool(10);
+    private static final int EXECUTOR_THREAD_POOL_SIZE = 10;
+    private ExecutorService executor;
     private IotHubConnectionString iotHubConnectionString;
 
     /**
@@ -58,18 +59,42 @@ public class RegistryManager
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_003: [The constructor shall create a new RegistryManager, stores the created IotHubConnectionString object and return with it]
         RegistryManager iotHubRegistryManager = new RegistryManager();
         iotHubRegistryManager.iotHubConnectionString = iotHubConnectionString;
+
+        // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_090: [The function shall start this object's executor service]
+        iotHubRegistryManager.executor = Executors.newFixedThreadPool(EXECUTOR_THREAD_POOL_SIZE);
+
         return iotHubRegistryManager;
     }
 
     /**
-     * Placeholder for open registry operations
+     * Re-opens this registry manager's executor service after it has been closed.
      */
-    public void open() {}
+    public void open()
+    {
+        if (this.executor.isShutdown())
+        {
+            // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_089: [If this object's executor service has been shutdown, the function shall recreate this object's executor service]
+            this.executor = Executors.newFixedThreadPool(EXECUTOR_THREAD_POOL_SIZE);
+        }
+    }
 
     /**
-     * Placeholder for close registry operations
+     * Gracefully close running threads, and then shutdown the underlying executor service
      */
-    public void close() {}
+    public void close()
+    {
+        // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_087: [The function shall tell this object's executor service to shutdown]
+        this.executor.shutdown();
+    }
+
+    /**
+     * Interrupt and shutdown all running threads and then shutdown the underlying executor service
+     */
+    public void closeNow()
+    {
+        // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_088: [The function shall tell this object's executor service to shutdownNow]
+        this.executor.shutdownNow();
+    }
 
     /**
      * Add device using the given Device object
@@ -123,6 +148,9 @@ public class RegistryManager
      */
     public CompletableFuture<Device> addDeviceAsync(Device device) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_091: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_012: [The constructor shall throw IllegalArgumentException if the input device is null]
         if (device == null)
         {
@@ -193,6 +221,9 @@ public class RegistryManager
      */
     public CompletableFuture<Device> getDeviceAsync(String deviceId) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_092: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_021: [The constructor shall throw IllegalArgumentException if the input device is null]
         if (Tools.isNullOrEmpty(deviceId))
         {
@@ -273,6 +304,9 @@ public class RegistryManager
      */
     public CompletableFuture<ArrayList<Device>> getDevicesAsync(Integer maxCount) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_093: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_030: [The function shall throw IllegalArgumentException if the input count number is less than 1]
         if (maxCount < 1)
         {
@@ -329,7 +363,6 @@ public class RegistryManager
         }
         return stringBuilder.toString();
     }
-
 
     /**
      * Update device not forced
@@ -402,6 +435,9 @@ public class RegistryManager
      */
     public CompletableFuture<Device> updateDeviceAsync(Device device) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_094: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_042: [The function shall throw IllegalArgumentException if the input device is null]
         if (device == null)
         {
@@ -435,6 +471,9 @@ public class RegistryManager
      */
     public CompletableFuture<Device> updateDeviceAsync(Device device, Boolean forceUpdate) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_095: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_044: [The function shall throw IllegalArgumentException if the input device is null]
         if (device == null)
         {
@@ -501,6 +540,9 @@ public class RegistryManager
      */
     public CompletableFuture<Boolean> removeDeviceAsync(String deviceId) throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_096: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_052: [The function shall throw IllegalArgumentException if the input string is null or empty]
         if (Tools.isNullOrEmpty(deviceId))
         {
@@ -563,6 +605,9 @@ public class RegistryManager
      */
     public CompletableFuture<RegistryStatistics> getStatisticsAsync() throws IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_097: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_060: [The function shall create an async wrapper around the getStatistics() function call, handle the return value or delegate exception]
         final CompletableFuture<RegistryStatistics> future = new CompletableFuture<>();
         executor.submit(() ->
@@ -633,6 +678,9 @@ public class RegistryManager
     public CompletableFuture<JobProperties> exportDevicesAsync(String exportBlobContainerUri, Boolean excludeKeys)
             throws IllegalArgumentException, IOException, IotHubException, JsonSyntaxException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_098: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // CODES_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_068: [The function shall create an async wrapper around the
         // exportDevices() function call, handle the return value or delegate exception]
         final CompletableFuture<JobProperties> future = new CompletableFuture<>();
@@ -704,6 +752,9 @@ public class RegistryManager
     public CompletableFuture<JobProperties> importDevicesAsync(String importBlobContainerUri, String outputBlobContainerUri)
             throws IllegalArgumentException, IOException, IotHubException, JsonSyntaxException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_099: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // CODES_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_076: [The function shall create an async wrapper around
         // the importDevices() function call, handle the return value or delegate exception]
         final CompletableFuture<JobProperties> future = new CompletableFuture<>();
@@ -770,6 +821,9 @@ public class RegistryManager
     public CompletableFuture<JobProperties> getJobAsync(
             String jobId) throws IllegalArgumentException, IOException, IotHubException
     {
+        //Codes_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_100: [The function shall start this object's executor service if it was closed]
+        this.open();
+
         // CODES_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_084: [The function shall create an async wrapper around
         // the getJob() function call, handle the return value or delegate exception]
         final CompletableFuture<JobProperties> future = new CompletableFuture<>();

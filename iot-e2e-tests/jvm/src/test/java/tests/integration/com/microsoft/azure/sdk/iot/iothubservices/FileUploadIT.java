@@ -190,8 +190,14 @@ public class FileUploadIT
         fileUploadNotificationReceiver.open();
         fileUploadNotificationReceiver.receive(MAX_MILLISECS_TIMEOUT_FLUSH_NOTIFICATION);
         fileUploadNotificationReceiver.close();
-        registryManager.removeDevice(scDevice.getDeviceId());
-        registryManager = null;
+
+        if (registryManager != null)
+        {
+            registryManager.close();
+            registryManager.removeDevice(scDevice.getDeviceId());
+            registryManager = null;
+        }
+
         serviceClient = null;
         deviceClient = null;
     }

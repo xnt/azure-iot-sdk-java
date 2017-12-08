@@ -89,6 +89,8 @@ public class DeviceMethodAmqpsIT
         }
 
         x509Device = new DeviceTestManager(registryManager, DEVICE_ID_NAME.concat("-x509"), IotHubClientProtocol.AMQPS, publicKeyCert, privateKey, x509Thumbprint);
+
+        registryManager.close();
     }
 
     @Before

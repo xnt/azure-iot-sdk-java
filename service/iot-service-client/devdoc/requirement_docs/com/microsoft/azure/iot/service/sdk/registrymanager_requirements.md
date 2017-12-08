@@ -18,6 +18,7 @@ public class RegistryManager
     private RegistryManager(IotHubConnectionString iotHubConnectionString);
     public void open();
     public void close();
+    public void closeNow();
     public Device addDevice(Device device);
     public CompletableFuture<Device> addDeviceAsync(Device device);
     public Device getDevice(String deviceId);
@@ -46,6 +47,8 @@ public static RegistryManager createFromConnectionString(String connectionString
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_002: [** The constructor shall create an IotHubConnectionString object from the given connection string **]**
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_003: [** The constructor shall create a new RegistryManager, stores the created IotHubConnectionString object and return with it **]**
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_090: [** The function shall start this object's executor service **]**
 
 ### addDevice
 
@@ -77,6 +80,8 @@ public CompletableFuture<Device> addDeviceAsync(Device device);
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_013: [** The function shall create an async wrapper around the addDevice() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_091: [** The function shall start this object's executor service if it was closed **]**
+
 ### getDevice
 
 ```java
@@ -105,6 +110,8 @@ public CompletableFuture<Device> getDeviceAsync(String deviceId);
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_022: [** The function shall create an async wrapper around the getDevice() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_092: [** The function shall start this object's executor service if it was closed **]**
+
 ### getDevices
 
 ```java
@@ -132,6 +139,8 @@ public CompletableFuture<ArrayList<Device>> getDevicesAsync(Integer maxCount);
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_030: [** The function shall throw IllegalArgumentException if the input count number is less than 1 **]**
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_031: [** The function shall create an async wrapper around the getDevices() function call, handle the return value or delegate exception **]**
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_093: [** The function shall start this object's executor service if it was closed **]**
 
 ### getDeviceConnectionString
 ```java
@@ -180,6 +189,8 @@ public CompletableFuture<Device> updateDeviceAsync(Device device);
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_043: [** The function shall create an async wrapper around the updateDevice() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_094: [** The function shall start this object's executor service if it was closed **]**
+
 ### updateDeviceAsync
 
 ```java
@@ -188,6 +199,8 @@ public CompletableFuture<Device> updateDeviceAsync(Device device, Boolean forceU
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_044: [** The function shall throw IllegalArgumentException if the input device is null **]**
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_045: [** The function shall create an async wrapper around the updateDevice(Device, device, Boolean forceUpdate) function call, handle the return value or delegate exception **]**
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_095: [** The function shall start this object's executor service if it was closed **]**
 
 ### removeDevice
 
@@ -215,6 +228,8 @@ public CompletableFuture<Void> removeDeviceAsync(String deviceId);
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_053: [** The function shall create an async wrapper around the removeDevice() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_096: [** The function shall start this object's executor service if it was closed **]**
+
 ### getStatistics
 
 ```java
@@ -238,6 +253,8 @@ public RegistryStatistics getStatistics();
 public CompletableFuture<RegistryStatistics> getStatisticsAsync();
 ```
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_060: [** The function shall create an async wrapper around the getStatistics() function call, handle the return value or delegate exception **]**
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_097: [** The function shall start this object's executor service if it was closed **]**
 
 ### exportDevices
 
@@ -267,6 +284,8 @@ public JobProperties exportDevices(String exportBlobContainerUri, Boolean exclud
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_068: [** The function shall create an async wrapper around the exportDevices() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_098: [** The function shall start this object's executor service if it was closed **]**
+
 ### importDevices
 
 ```java
@@ -295,6 +314,8 @@ public JobProperties exportDevices(String exportBlobContainerUri, Boolean exclud
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_076: [** The function shall create an async wrapper around the importDevices() function call, handle the return value or delegate exception **]**
 
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_099: [** The function shall start this object's executor service if it was closed **]**
+
 ### getJob
 
 ```java
@@ -322,3 +343,26 @@ public JobProperties exportDevices(String exportBlobContainerUri, Boolean exclud
 ```
 
 **SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_084: [** The function shall create an async wrapper around the getJob() function call, handle the return value or delegate exception **]**
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_100: [** The function shall start this object's executor service if it was closed **]**
+
+### close
+```java
+    public void close();
+```
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_087: [** The function shall tell this object's executor service to shutdown **]**
+
+### closeNow
+```java
+    public void closeNow();
+```
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_088: [** The function shall tell this object's executor service to shutdownNow **]**
+
+### open
+```java
+    public void open();
+```
+
+**SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_089: [** If this object's executor service has been shutdown, the function shall recreate this object's executor service **]**

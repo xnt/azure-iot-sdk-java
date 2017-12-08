@@ -22,14 +22,15 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static junit.framework.TestCase.assertNotNull;
+import static org.junit.Assert.*;
 
 /**
  * Code Coverage
- * Methods: 78%
- * Lines: 76%
+ * Methods: 100%
+ * Lines: 96%
  */
 @RunWith(JMockit.class)
 public class RegistryManagerTest
@@ -108,6 +109,7 @@ public class RegistryManagerTest
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_002: [The constructor shall create an IotHubConnectionString object from the given connection string]
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_003: [The constructor shall create a new RegistryManager, stores the created IotHubConnectionString object and return with it]
+    // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_090: [The function shall start this object's executor service]
     @Test
     public void constructor_good_case() throws Exception
     {
@@ -123,8 +125,9 @@ public class RegistryManagerTest
 
         RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
 
-        assertNotEquals(null, registryManager);
-        assertNotEquals(null, Deencapsulation.getField(registryManager, "iotHubConnectionString"));
+        assertNotNull(registryManager);
+        assertNotNull(Deencapsulation.getField(registryManager, "iotHubConnectionString"));
+        assertNotNull(Deencapsulation.getField(registryManager, "executor"));
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_004: [The constructor shall throw IllegalArgumentException if the input device is null]
@@ -200,6 +203,33 @@ public class RegistryManagerTest
         Device returnDevice = completableFuture.get();
 
         commonVerifications(HttpMethod.PUT, deviceId, returnDevice);
+    }
+
+    // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_091: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void addDeviceAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+        new NonStrictExpectations()
+        {
+            {
+                device.getDeviceId();
+                result = deviceId;
+            }
+        };
+
+        commonExpectations(connectionString, deviceId);
+
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.addDeviceAsync(device).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_ REGISTRYMANAGER_12_013: [The function shall create an async wrapper around the addDevice() function call, handle the return value or delegate exception]
@@ -281,6 +311,24 @@ public class RegistryManagerTest
         commonVerifications(HttpMethod.GET, deviceId, returnDevice);
     }
 
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_092: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void getDeviceAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+        commonExpectations(connectionString, deviceId);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.getDeviceAsync(deviceId).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
+    }
+
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_022: [The function shall create an async wrapper around the addDevice() function call, handle the return value or delegate exception]
     // Assert
     @Test (expected = Exception.class)
@@ -360,6 +408,24 @@ public class RegistryManagerTest
         ArrayList<Device> devices = completableFuture.get();
 
         getDevicesVerifications(numberOfDevices, devices);
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_093: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void getDevicesAsync_future_reopens_executor_service() throws Exception
+    {
+        //arramge
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        int numberOfDevices = 10;
+        getDevicesExpectations(connectionString, numberOfDevices);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.getDevicesAsync(10).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_21_085: [The function shall return a connectionString for the input device]
@@ -708,6 +774,32 @@ public class RegistryManagerTest
         };
     }
 
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_094: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void updateDeviceAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+
+        new NonStrictExpectations()
+        {
+            {
+                device.getDeviceId();
+                result = deviceId;
+            }
+        };
+        commonExpectations(connectionString, deviceId);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.updateDeviceAsync(device).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
+    }
+
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_043: [The function shall create an async wrapper around the updateDevice() function call, handle the return value or delegate exception]
     // Assert
     @Test (expected = Exception.class)
@@ -769,6 +861,32 @@ public class RegistryManagerTest
                 mockHttpRequest.setHeaderField("If-Match", "*");
             }
         };
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_095: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void updateDeviceAsyncForce_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+        new NonStrictExpectations()
+        {
+            {
+                device.getDeviceId();
+                result = deviceId;
+            }
+        };
+
+        commonExpectations(connectionString, deviceId);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.updateDeviceAsync(device, true).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_045: [The function shall create an async wrapper around the updateDevice(Device, device, Boolean forceUpdate) function call, handle the return value or delegate exception]
@@ -892,6 +1010,24 @@ public class RegistryManagerTest
         };
     }
 
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_096: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void removeDeviceAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+        commonExpectations(connectionString, deviceId);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.removeDeviceAsync(deviceId).get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
+    }
+
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_053: [The function shall create an async wrapper around the removeDevice() function call, handle the return value or delegate exception]
     // Assert
     @Test (expected = Exception.class)
@@ -945,7 +1081,7 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, statistics);
+        assertNotNull(statistics);
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_060: [The function shall create an async wrapper around the getStatistics() function call, handle the return value or delegate exception]
@@ -977,7 +1113,25 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, statistics);
+        assertNotNull(statistics);
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_097: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void getStatisticsAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        String deviceId = "somedevice";
+        commonExpectations(connectionString, deviceId);
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        registryManager.getStatisticsAsync().get();
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_12_060: [The function shall create an async wrapper around the getStatistics() function call, handle the return value or delegate exception]
@@ -1063,7 +1217,7 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, jobProperties);
+        assertNotNull(jobProperties);
     }
 
     // TESTS_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_068: [The function shall create an async wrapper around
@@ -1086,6 +1240,35 @@ public class RegistryManagerTest
 
         CompletableFuture<JobProperties> completableFuture =  registryManager.exportDevicesAsync("blah", true);
         completableFuture.get();
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_098: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void exportDevicesAsync_future_reopens_executor_service() throws Exception
+    {
+        //arrange
+        new MockUp<RegistryManager>()
+        {
+            @Mock
+            public JobProperties exportDevices(String url, Boolean excludeKeys)
+                    throws IllegalArgumentException, IOException, IotHubException
+            {
+                throw new IllegalArgumentException();
+            }
+        };
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        try
+        {
+            registryManager.exportDevicesAsync("blah", true).get();
+        }
+        catch (Exception e) {}
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // TESTS_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_069: [The function shall throw IllegalArgumentException if any of the input parameters is null]
@@ -1152,7 +1335,7 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, jobProperties);
+        assertNotNull(jobProperties);
     }
 
     // TESTS_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_076: [The function shall create an async wrapper around
@@ -1175,6 +1358,34 @@ public class RegistryManagerTest
 
         CompletableFuture<JobProperties> completableFuture =  registryManager.importDevicesAsync("importblob", "outputblob");
         completableFuture.get();
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_099: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void importDevicesAsync_reopens_executor_service() throws Exception
+    {
+        //arrange
+        new MockUp<RegistryManager>()
+        {
+            @Mock
+            public JobProperties importDevices(String importBlobContainerUri, String outputBlobContainerUri)
+                    throws IllegalArgumentException, IOException, IotHubException
+            {
+                throw new IllegalArgumentException();
+            }
+        };
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        try
+        {
+            registryManager.importDevicesAsync("importblob", "outputblob").get();
+        }
+        catch (Exception e) {}
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
     }
 
     // TESTS_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_077: [The function shall throw IllegalArgumentException if the input parameter is null]
@@ -1232,7 +1443,7 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, jobProperties);
+        assertNotNull(jobProperties);
     }
 
     // TESTS_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_15_084: [The function shall create an async wrapper
@@ -1255,6 +1466,108 @@ public class RegistryManagerTest
 
         CompletableFuture<JobProperties> completableFuture =  registryManager.getJobAsync("someJobId");
         completableFuture.get();
+    }
+
+    //Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_100: [The function shall start this object's executor service if it was closed]
+    @Test
+    public void getJobAsync_reopens_executor_service() throws Exception
+    {
+        //arrange
+        new MockUp<RegistryManager>()
+        {
+            @Mock
+            public JobProperties getJob(String jobId)
+                    throws IllegalArgumentException, IOException, IotHubException
+            {
+                throw new IllegalArgumentException();
+            }
+        };
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.close();
+
+        //act
+        try
+        {
+            registryManager.getJobAsync("someJobId").get();
+        }
+        catch (Exception e) {}
+
+        //assert
+        assertThatExecutorServiceIsNotShutdown(registryManager);
+    }
+    
+    // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_087: [The function shall tell this object's executor service to shutdown]
+    @Test
+    public void closeShutsDownExecutorService() throws IOException
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        new NonStrictExpectations()
+        {
+            {
+                IotHubConnectionStringBuilder.createConnectionString(connectionString);
+                result = iotHubConnectionString;
+            }
+        };
+
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+
+        //act
+        registryManager.close();
+
+        //assert
+        ExecutorService actualExecutorService = Deencapsulation.getField(registryManager, "executor");
+        assertTrue(actualExecutorService.isShutdown());
+    }
+
+    // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_088: [The function shall tell this object's executor service to shutdownNow]
+    @Test
+    public void closeNowShutsDownExecutorService() throws IOException
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        new NonStrictExpectations()
+        {
+            {
+                IotHubConnectionStringBuilder.createConnectionString(connectionString);
+                result = iotHubConnectionString;
+            }
+        };
+
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+
+        //act
+        registryManager.closeNow();
+
+        //assert
+        ExecutorService actualExecutorService = Deencapsulation.getField(registryManager, "executor");
+        assertTrue(actualExecutorService.isShutdown());
+    }
+
+    // Tests_SRS_SERVICE_SDK_JAVA_REGISTRYMANAGER_34_089: [If this object's executor service has been shutdown, the function shall recreate this object's executor service]
+    @Test
+    public void openOpensExecutorService() throws IOException
+    {
+        //arrange
+        String connectionString = "HostName=aaa.bbb.ccc;SharedAccessKeyName=XXX;SharedAccessKey=YYY";
+        new NonStrictExpectations()
+        {
+            {
+                IotHubConnectionStringBuilder.createConnectionString(connectionString);
+                result = iotHubConnectionString;
+            }
+        };
+
+        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        registryManager.closeNow();
+
+        //act
+        registryManager.open();
+
+        //assert
+        ExecutorService actualExecutorService = Deencapsulation.getField(registryManager, "executor");
+        assertFalse(actualExecutorService.isShutdown());
     }
 
     private void commonExpectations(String connectionString, String deviceId) throws Exception
@@ -1294,7 +1607,7 @@ public class RegistryManagerTest
                 mockIotHubExceptionManager.httpResponseVerification((HttpResponse) any);
             }
         };
-        assertNotEquals(null, responseDevice);
+        assertNotNull(responseDevice);
     }
 
     private void getDevicesExpectations(String connectionString, int numberOfDevices) throws Exception
@@ -1333,6 +1646,12 @@ public class RegistryManagerTest
                 mockHttpRequest.send();
             }
         };
-        assertNotEquals(null, devices);
+        assertNotNull(devices);
+    }
+
+    private static void assertThatExecutorServiceIsNotShutdown(RegistryManager registryManager)
+    {
+        ExecutorService executorService = Deencapsulation.getField(registryManager, "executor");
+        assertFalse(executorService.isShutdown());
     }
 }

@@ -121,6 +121,8 @@ public class JobClientIT
         {
             devices.add(new DeviceTestManager(registryManager, DEVICE_ID_NAME.concat("-" + i), IotHubClientProtocol.MQTT));
         }
+
+        registryManager.close();
     }
 
     @Before
