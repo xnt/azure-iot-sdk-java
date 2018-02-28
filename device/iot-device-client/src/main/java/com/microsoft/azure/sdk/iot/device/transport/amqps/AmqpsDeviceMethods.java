@@ -5,6 +5,7 @@ package com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.DeviceOperations;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.IotHubTransportMessage;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Binary;
@@ -156,7 +157,7 @@ public final class AmqpsDeviceMethods extends AmqpsDeviceOperations
      * @return the converted message
      */
     @Override
-    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig)
+    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws TransportException
     {
         if ((amqpsMessage.getAmqpsMessageType() == MessageType.DEVICE_METHODS) &&
             (this.deviceClientConfig.getDeviceId() == deviceClientConfig.getDeviceId()))
@@ -213,7 +214,7 @@ public final class AmqpsDeviceMethods extends AmqpsDeviceOperations
      * @return the corresponding IoT Hub message.
      */
     @Override
-    protected Message protonMessageToIoTHubMessage(MessageImpl protonMsg)
+    protected Message protonMessageToIoTHubMessage(MessageImpl protonMsg) throws TransportException
     {
         byte[] msgBody;
 

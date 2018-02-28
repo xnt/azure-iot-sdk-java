@@ -1,6 +1,7 @@
 package tests.unit.com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.IotHubServiceException;
 import com.microsoft.azure.sdk.iot.device.transport.amqps.*;
 import mockit.*;
 import org.apache.qpid.proton.engine.*;
@@ -324,8 +325,8 @@ public class AmqpsSessionManagerTest
         Deencapsulation.invoke(amqpsSessionManager, "openDeviceOperationLinks");
     }
 
-    // Tests_SRS_AMQPSESSIONMANAGER_12_021: [The function shall throw IOException if the lock throws.]
-    @Test (expected = IOException.class)
+    // Tests_SRS_AMQPSESSIONMANAGER_12_021: [The function shall throw IotHubServiceException if the lock throws.]
+    @Test (expected = IotHubServiceException.class)
     public void openDeviceOperationLinksLockThrows() throws IllegalArgumentException, InterruptedException
     {
         // arrange

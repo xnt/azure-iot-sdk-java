@@ -1,6 +1,8 @@
 package com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
+import com.microsoft.azure.sdk.iot.device.exceptions.IotHubServiceException;
 import org.apache.qpid.proton.engine.*;
 
 import java.io.IOException;
@@ -104,9 +106,9 @@ public class AmqpsSessionDeviceOperation
      * In the CBS case start openeing the authentication links
      * and send authentication messages.
      *
-     * @throws IOException throw if Proton operation throws.
+     * @throws IotHubServiceException if authentication message reply takes too long.
      */
-    public void authenticate() throws IOException
+    public void authenticate() throws IotHubServiceException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -136,7 +138,7 @@ public class AmqpsSessionDeviceOperation
                     cbsCorrelationIdList.remove(correlationId);
 
                     // Codes_SRS_AMQPSESSIONMANAGER_12_017: [The function shall throw IOException if the lock throws.]
-                    throw new IOException("Waited too long for the authentication message reply.");
+                    throw new IotHubServiceException("Waited too long for the authentication message reply.");
                 }
             }
         }
@@ -149,16 +151,13 @@ public class AmqpsSessionDeviceOperation
      *
      * @throws IOException throw if Proton operation throws.
      */
-    public void renewToken() throws IOException
+    public void renewToken() throws IotHubServiceException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
         if ((this.deviceClientConfig.getAuthenticationType() == DeviceClientConfig.AuthType.SAS_TOKEN) &&
                 (this.amqpsAuthenticatorState == AmqpsDeviceAuthenticationState.AUTHENTICATED))
         {
-            // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_050: [The function shall renew the sas token if the authentication type is CBS and the authentication state is authenticated.]
-            this.deviceClientConfig.getSasTokenAuthentication().getRenewedSasToken();
-
             // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_052: [The function shall restart the scheduler with the calculated renewal period if the authentication type is CBS.]
             if (scheduleRenewalThread())
             {
@@ -209,7 +208,7 @@ public class AmqpsSessionDeviceOperation
      * @throws IOException throw if Proton operation throws.
      * @throws IllegalArgumentException throw if session parameter is null.
      */
-    void openLinks(Session session) throws IOException, IllegalArgumentException
+    void openLinks(Session session) throws TransportException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -489,7 +488,7 @@ public class AmqpsSessionDeviceOperation
      * @return AmqpsConvertToProtonReturnValue the result of the 
      *         conversion containing the Proton message.
      */
-    AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws IOException
+    AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws IOException, TransportException
     {
         AmqpsConvertFromProtonReturnValue amqpsHandleMessageReturnValue = null;
 
