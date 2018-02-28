@@ -3,6 +3,7 @@
 
 package tests.unit.com.microsoft.azure.sdk.iot.device.transport.https;
 
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.https.HttpsResponse;
 import org.junit.Test;
 
@@ -60,7 +61,7 @@ public class HttpsResponseTest
     // Tests_SRS_HTTPSRESPONSE_11_001: [The constructor shall store the input arguments so that the getters can return them later.]
     // Tests_SRS_HTTPSRESPONSE_11_004: [The function shall return a comma-separated list of the values associated with the header field name.]
     @Test
-    public void getHeaderFieldReturnsHeaderField()
+    public void getHeaderFieldReturnsHeaderField() throws TransportException
     {
         final int status = 200;
         final byte[] body = { 1 };
@@ -84,7 +85,7 @@ public class HttpsResponseTest
 
     // Tests_SRS_HTTPSRESPONSE_11_008: [The function shall match the header field name in a case-insensitive manner.]
     @Test
-    public void getHeaderFieldMatchesCaseInsensitive()
+    public void getHeaderFieldMatchesCaseInsensitive() throws TransportException
     {
         final int status = 200;
         final byte[] body = { 1 };
@@ -107,10 +108,9 @@ public class HttpsResponseTest
         assertThat(testValues, is(expectedValues));
     }
 
-    // Tests_SRS_HTTPSRESPONSE_11_006: [If a value could not be found for the given header field name, the function shall throw an IllegalArgumentException.]
-    @Test(expected = IllegalArgumentException.class)
-    public void getHeaderFieldRejectsInvalidFieldName()
-            throws IllegalArgumentException
+    // Tests_SRS_HTTPSRESPONSE_11_006: [If a value could not be found for the given header field name, the function shall throw a TransportException.]
+    @Test(expected = TransportException.class)
+    public void getHeaderFieldRejectsInvalidFieldName() throws IllegalArgumentException, TransportException
     {
         final int status = 200;
         final byte[] body = { 1 };

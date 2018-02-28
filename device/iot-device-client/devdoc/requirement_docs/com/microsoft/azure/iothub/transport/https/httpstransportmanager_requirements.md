@@ -28,7 +28,7 @@ public class HttpsTransportManager implements IotHubTransportManager
 public HttpsTransportManager(DeviceClientConfig config) throws IllegalArgumentException;
 ```
 **SRS_HTTPSTRANSPORTMANAGER_21_001: [**The constructor shall store the device client configuration `config`.**]**  
-**SRS_HTTPSTRANSPORTMANAGER_21_002: [**If the provided `config` is null, the constructor shall throws IllegalArgumentException.**]**  
+**SRS_HTTPSTRANSPORTMANAGER_21_002: [**If the provided `config` is null, the constructor shall throws TransportException.**]**
 
 ### open
 ```java
@@ -57,7 +57,7 @@ public ResponseMessage send(Message message) throws IOException, IllegalArgument
 **SRS_HTTPSTRANSPORTMANAGER_21_008: [**If send failed to parse the message, it shall bypass the exception.**]**  
 **SRS_HTTPSTRANSPORTMANAGER_21_009: [**If the IotHubMethod is `GET`, the send shall set the httpsMethod as `GET`.**]**  
 **SRS_HTTPSTRANSPORTMANAGER_21_010: [**If the IotHubMethod is `POST`, the send shall set the httpsMethod as `POST`.**]**  
-**SRS_HTTPSTRANSPORTMANAGER_21_011: [**If the IotHubMethod is not `GET` or `POST`, the send shall throws IllegalArgumentException.**]**  
+**SRS_HTTPSTRANSPORTMANAGER_21_011: [**If the IotHubMethod is not `GET` or `POST`, the send shall throws TransportException.**]**
 **SRS_HTTPSTRANSPORTMANAGER_21_012: [**The send shall set the httpsPath with the uriPath in the message.**]**  
 **SRS_HTTPSTRANSPORTMANAGER_21_013: [**The send shall call `sendHttpsMessage` from `HttpsIotHubConnection` to send the message.**]**  
 **SRS_HTTPSTRANSPORTMANAGER_21_014: [**If `sendHttpsMessage` failed, the send shall bypass the exception.**]**  

@@ -3,11 +3,13 @@
 
 package com.microsoft.azure.sdk.iot.device.transport.https;
 
+import com.microsoft.azure.sdk.iot.device.exceptions.ProtocolException;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
+
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,9 +50,9 @@ public class HttpsConnection
      *
      * @throws IOException if the connection could not be opened.
      */
-    public HttpsConnection(URL url, HttpsMethod method) throws IOException
+    public HttpsConnection(URL url, HttpsMethod method) throws TransportException
     {
-        // Codes_SRS_HTTPSCONNECTION_11_022: [If the URI given does not use the HTTPS protocol, the constructor shall throw an IllegalArgumentException.]
+        // Codes_SRS_HTTPSCONNECTION_11_022: [If the URI given does not use the HTTPS protocol, the constructor shall throw an TransportException.]
         String protocol = url.getProtocol();
         if (!protocol.equalsIgnoreCase("HTTPS"))
         {
@@ -58,15 +60,25 @@ public class HttpsConnection
                             + "HTTPS but received one that uses "
                             + "protocol '%s'.%n",
                     protocol);
-            throw new IllegalArgumentException(errMsg);
+            throw new TransportException(new IllegalArgumentException(errMsg));
         }
 
-        // Codes_SRS_HTTPSCONNECTION_11_001: [The constructor shall open a connection to the given URL.]
-        // Codes_SRS_HTTPSCONNECTION_11_002: [The constructor shall throw an IOException if the connection was unable to be opened.]
-        this.connection = (HttpsURLConnection) url.openConnection();
-        // Codes_SRS_HTTPSCONNECTION_11_021: [The constructor shall set the HTTPS method to the given method.]
-        this.connection.setRequestMethod(method.name());
         this.body = new byte[0];
+
+        try
+        {
+            // Codes_SRS_HTTPSCONNECTION_11_001: [The constructor shall open a connection to the given URL.]
+            // Codes_SRS_HTTPSCONNECTION_11_002: [The constructor shall throw a TransportException if the connection was unable to be opened.]
+            this.connection = (HttpsURLConnection) url.openConnection();
+            // Codes_SRS_HTTPSCONNECTION_11_021: [The constructor shall set the HTTPS method to the given method.]
+            this.connection.setRequestMethod(method.name());
+        }
+        catch (IOException e)
+        {
+            TransportException transportException = new ProtocolException(e);
+            transportException.setRetryable(true);
+            throw transportException;
+        }
     }
 
     /**
@@ -93,21 +105,21 @@ public class HttpsConnection
      *
      * @param method the request method.
      *
-     * @throws IllegalArgumentException if the request currently has a non-empty
+     * @throws TransportException if the request currently has a non-empty
      * body and the new method is not a POST or a PUT. This is because Java's
      * {@link HttpsURLConnection} silently converts the HTTPS method to POST or PUT if a
      * body is written to the request.
      */
-    public void setRequestMethod(HttpsMethod method)
+    public void setRequestMethod(HttpsMethod method) throws TransportException
     {
-        // Codes_SRS_HTTPSCONNECTION_11_007: [The function shall throw an IllegalArgumentException if the request currently has a non-empty body and the new method is not a POST or a PUT.]
+        // Codes_SRS_HTTPSCONNECTION_11_007: [The function shall throw an TransportException if the request currently has a non-empty body and the new method is not a POST or a PUT.]
         if (method != HttpsMethod.POST && method != HttpsMethod.PUT)
         {
             if (this.body.length > 0)
             {
-                throw new IllegalArgumentException(
+                throw new TransportException(new IllegalArgumentException(
                         "Cannot change the request method from POST "
-                        + "or PUT when the request body is non-empty.");
+                        + "or PUT when the request body is non-empty."));
             }
         }
 
@@ -116,9 +128,14 @@ public class HttpsConnection
         {
             this.connection.setRequestMethod(method.name());
         }
-        catch (ProtocolException e)
+        catch (java.net.ProtocolException e)
         {
             // should never happen, since the method names are hard-coded.
+            throw new TransportException(e);
+        }
+        catch (SecurityException e)
+        {
+            throw new TransportException(e);
         }
     }
 
@@ -152,23 +169,23 @@ public class HttpsConnection
      *
      * @param body the request body.
      *
-     * @throws IllegalArgumentException if the request does not currently use
+     * @throws TransportException if the request does not currently use
      * method POST or PUT and the body is non-empty. This is because Java's
      * {@link HttpsURLConnection} silently converts the HTTPS method to POST or PUT if a
      * body is written to the request.
      */
-    public void writeOutput(byte[] body)
+    public void writeOutput(byte[] body) throws TransportException
     {
-        // Codes_SRS_HTTPSCONNECTION_11_010: [The function shall throw an IllegalArgumentException if the request does not currently use method POST or PUT and the body is non-empty.]
+        // Codes_SRS_HTTPSCONNECTION_11_010: [The function shall throw an TransportException if the request does not currently use method POST or PUT and the body is non-empty.]
         HttpsMethod method = HttpsMethod.valueOf(
                 this.connection.getRequestMethod());
         if (method != HttpsMethod.POST && method != HttpsMethod.PUT)
         {
             if (body.length > 0)
             {
-                throw new IllegalArgumentException(
+                throw new TransportException(new IllegalArgumentException(
                         "Cannot write a body to a request that "
-                        + "is not a POST or a PUT request.");
+                        + "is not a POST or a PUT request."));
             }
         }
         else
@@ -284,14 +301,14 @@ public class HttpsConnection
         return byteArray;
     }
 
-    void setSSLContext(SSLContext sslContext) throws IllegalArgumentException
+    void setSSLContext(SSLContext sslContext) throws TransportException
     {
         if (sslContext == null)
         {
-            //Codes_SRS_HTTPSCONNECTION_25_025: [The function shall throw IllegalArgumentException if the context is null value.**]**
-            throw new IllegalArgumentException("SSL context cannot be null");
+            //Codes_SRS_HTTPSCONNECTION_25_025: [The function shall throw TransportException if the context is null value.]
+            throw new TransportException(new IllegalArgumentException("SSL context cannot be null"));
         }
-        //Codes_SRS_HTTPSCONNECTION_25_024: [**The function shall set the the SSL context with the given value.**]**
+        //Codes_SRS_HTTPSCONNECTION_25_024: [The function shall set the the SSL context with the given value.]
         this.connection.setSSLSocketFactory(sslContext.getSocketFactory());
     }
 

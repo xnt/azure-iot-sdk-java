@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import com.microsoft.azure.sdk.iot.deps.util.Base64;
 import com.microsoft.azure.sdk.iot.device.exceptions.IotHubSizeExceededException;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 
 
 /**
@@ -53,26 +54,25 @@ public final class HttpsBatchMessage implements HttpsMessage
      *
      * @param msg the message to be added.
      *
-     * @throws IotHubSizeExceededException if adding the message causes the
+     * @throws TransportException if adding the message causes the
      * batched message to exceed 256 kb in size. The batched message will remain
      * as if the message was never added.
      */
-    public void addMessage(HttpsSingleMessage msg)
-            throws IotHubSizeExceededException
+    public void addMessage(HttpsSingleMessage msg) throws TransportException
     {
         String jsonMsg = msgToJson(msg);
         // Codes_SRS_HTTPSBATCHMESSAGE_11_002: [The function shall add the message as a JSON object appended to the current JSON array.]
         String newBatchBody = addJsonObjToArray(jsonMsg, this.batchBody);
 
-        // Codes_SRS_HTTPSBATCHMESSAGE_11_008: [If adding the message causes the batched message to exceed 256 kb in size, the function shall throw a IotHubSizeExceededException.]
-        // Codes_SRS_HTTPSBATCHMESSAGE_11_009: [If the function throws a IotHubSizeExceededException, the batched message shall remain as if the message was never added.]
+        // Codes_SRS_HTTPSBATCHMESSAGE_11_008: [If adding the message causes the batched message to exceed 256 kb in size, the function shall throw a TransportException.]
+        // Codes_SRS_HTTPSBATCHMESSAGE_11_009: [If the function throws a TransportException, the batched message shall remain as if the message was never added.]
         byte[] newBatchBodyBytes = newBatchBody.getBytes(BATCH_CHARSET);
 
         if (newBatchBodyBytes.length > SERVICEBOUND_MESSAGE_MAX_SIZE_BYTES)
         {
             String errMsg = String.format("Service-bound message size (%d bytes) cannot exceed %d bytes.",
                     newBatchBodyBytes.length, SERVICEBOUND_MESSAGE_MAX_SIZE_BYTES);
-            throw new IotHubSizeExceededException(errMsg);
+            throw new TransportException(new IotHubSizeExceededException(errMsg));
         }
 
         this.batchBody = newBatchBody;

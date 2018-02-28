@@ -11,13 +11,13 @@ An HTTPS request.
 ```java
 public class HttpsRequest
 {
-    public HttpsRequest(URL url, HttpsMethod method, byte[] body) throws IOException;
+    public HttpsRequest(URL url, HttpsMethod method, byte[] body) throws TransportException;
 
     public HttpsResponse send() throws IOException;
 
     public HttpsRequest setHeaderField(String field, String value);
     public HttpsRequest setReadTimeoutMillis(int timeout);
-    public HttpsRequest setSSLContext(IotHubSSLContext iotHubSSLContext);
+    public HttpsRequest setSSLContext(IotHubSSLContext iotHubSSLContext) throws TransportException;
 }
 ```
 
@@ -34,7 +34,7 @@ public HttpsRequest(URL url, HttpsMethod method, byte[] body) throws IOException
 
 **SRS_HTTPSREQUEST_11_004: [**The function shall use the given HTTPS method (i.e. GET) as the request method.**]**
 
-**SRS_HTTPSREQUEST_11_005: [**If an IOException occurs in setting up the HTTPS connection, the function shall throw an IOException.**]**
+**SRS_HTTPSREQUEST_11_005: [**If an IOException occurs in setting up the HTTPS connection, the function shall throw a TransportException.**]**
 
 
 ### HttpsResponse
@@ -73,9 +73,9 @@ public HttpsRequest setReadTimeoutMillis(int timeout);
 ### setSSLContext
 
 ```java
-public HttpsRequest setSSLContext(IotHubSSLContext iotHubSSLContext);
+public HttpsRequest setSSLContext(IotHubSSLContext iotHubSSLContext) throws TransportException;
 ```
 
-**SRS_HTTPSREQUEST_25_015: [**The function shall throw IllegalArgumentException if parameter is null .**]**
+**SRS_HTTPSREQUEST_25_015: [**The function shall throw TransportException if parameter is null .**]**
 
 **SRS_HTTPSREQUEST_25_016: [**The function shall set the SSL context for the IotHub.**]**

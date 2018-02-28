@@ -61,7 +61,7 @@ public String getHeaderField(String field);
 
 **SRS_HTTPSRESPONSE_11_008: [**The function shall match the header field name in a case-insensitive manner.**]**
 
-**SRS_HTTPSRESPONSE_11_006: [**If a value could not be found for the given header field name, the function shall throw an IllegalArgumentException.**]**
+**SRS_HTTPSRESPONSE_11_006: [**If a value could not be found for the given header field name, the function shall throw a TransportException.**]**
 
 
 ### getErrorReason

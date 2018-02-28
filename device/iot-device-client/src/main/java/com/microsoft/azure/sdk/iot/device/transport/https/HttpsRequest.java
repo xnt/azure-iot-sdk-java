@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.sdk.iot.device.transport.https;
 
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.TransportUtils;
 
 import javax.net.ssl.SSLContext;
@@ -28,15 +29,14 @@ public class HttpsRequest
      * @param body the request body. Must be an array of size 0 if the request
      * method is GET or DELETE.
      *
-     * @throws IOException if an IOException occurs in setting up the HTTPS
+     * @throws TransportException if an Exception occurs in setting up the HTTPS
      * connection.
-     * @throws IllegalArgumentException if the endpoint given does not use the
+     * @throws TransportException if the endpoint given does not use the
      * HTTPS protocol.
      */
-    public HttpsRequest(URL url, HttpsMethod method, byte[] body)
-            throws IOException
+    public HttpsRequest(URL url, HttpsMethod method, byte[] body) throws TransportException
     {
-        // Codes_SRS_HTTPSREQUEST_11_005: [If an IOException occurs in setting up the HTTPS connection, the function shall throw an IOException.]
+        // Codes_SRS_HTTPSREQUEST_11_005: [If an IOException occurs in setting up the HTTPS connection, the function shall throw a TransportException.]
         // Codes_SRS_HTTPSREQUEST_11_001: [The function shall open a connection with the given URL as the endpoint.]
         // Codes_SRS_HTTPSREQUEST_11_004: [The function shall use the given HTTPS method (i.e. GET) as the request method.]
         this.connection = new HttpsConnection(url, method);
@@ -68,8 +68,6 @@ public class HttpsRequest
             headerFields = this.connection.getResponseHeaders();
             responseBody = this.connection.readInput();
         }
-        // Can be caused either by an unsuccessful
-        // connection or by a bad status code.
         catch (IOException e)
         {
             // If the IOException was caused by a bad status code in the
@@ -122,12 +120,12 @@ public class HttpsRequest
         return this;
     }
 
-    public HttpsRequest setSSLContext(SSLContext sslContext)
+    public HttpsRequest setSSLContext(SSLContext sslContext) throws TransportException
     {
         if (sslContext == null)
         {
-            //Codes_SRS_HTTPSREQUEST_25_015: [The function shall throw IllegalArgumentException if parameter is null .]
-            throw new IllegalArgumentException("Context cannot be null");
+            //Codes_SRS_HTTPSREQUEST_25_015: [The function shall throw TransportException if parameter is null .]
+            throw new TransportException(new IllegalArgumentException("Context cannot be null"));
         }
         //Codes_SRS_HTTPSREQUEST_25_016: [The function shall set the SSL context for the IotHub.]
         this.connection.setSSLContext(sslContext);

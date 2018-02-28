@@ -12,7 +12,7 @@ The underlying HttpsURLConnection is transparently managed by Java. To reuse con
 ```java
 public class HttpsConnection
 {
-    public HttpsConnection(URL url, HttpsMethod method) throws IOException;
+    public HttpsConnection(URL url, HttpsMethod method) throws TransportException;
 
     public void connect() throws IOException;
 
@@ -26,7 +26,7 @@ public class HttpsConnection
 
     public int getResponseStatus() throws IOException;
     public Map<String, List<String>> getResponseHeaders() throws IOException;
-    protected void setSSLContext(SSLContext sslContext) throws IllegalArgumentException;
+    void setSSLContext(SSLContext sslContext) throws TransportException;
 }
 ```
 
@@ -34,16 +34,16 @@ public class HttpsConnection
 ### HttpsConnection
 
 ```java
-public HttpsConnection(URL url, HttpsMethod method) throws IOException;
+public HttpsConnection(URL url, HttpsMethod method) throws TransportException;
 ```
 
 **SRS_HTTPSCONNECTION_11_001: [**The constructor shall open a connection to the given URL.**]**
 
-**SRS_HTTPSCONNECTION_11_002: [**The constructor shall throw an IOException if the connection was unable to be opened.**]**
+**SRS_HTTPSCONNECTION_11_002: [**The constructor shall throw a TranpsortException if the connection was unable to be opened.**]**
 
 **SRS_HTTPSCONNECTION_11_021: [**The constructor shall set the HTTPS method to the given method.**]**
 
-**SRS_HTTPSCONNECTION_11_022: [If the URI given does not use the HTTPS protocol, the constructor shall throw an IllegalArgumentException.**]**
+**SRS_HTTPSCONNECTION_11_022: [If the URI given does not use the HTTPS protocol, the constructor shall throw an TransportException.**]**
 
 
 ### connect
@@ -67,7 +67,7 @@ public void setRequestMethod(HttpsMethod method);
 
 **SRS_HTTPSCONNECTION_11_006: [**The function shall set the request method.**]**
 
-**SRS_HTTPSCONNECTION_11_007: [**The function shall throw an IllegalArgumentException if the request currently has a non-empty body and the new method is not a POST or a PUT.**]**
+**SRS_HTTPSCONNECTION_11_007: [**The function shall throw an TransportException if the request currently has a non-empty body and the new method is not a POST or a PUT.**]**
 
 
 ### setRequestHeader
@@ -91,12 +91,12 @@ public void setReadTimeoutMillis(int timeout);
 ### setSSLContext
 
 ```java
-protected void setSSLContext(SSLContext sslContext) throws IllegalArgumentException;
+protected void setSSLContext(SSLContext sslContext) throws TransportException;
 ```
 
 **SRS_HTTPSCONNECTION_25_024: [**The function shall set the the SSL context with the given value.**]**
 
-**SRS_HTTPSCONNECTION_25_025: [**The function shall throw IllegalArgumentException if the context is null value.**]**
+**SRS_HTTPSCONNECTION_25_025: [**The function shall throw TransportException if the context is null value.**]**
 
 ### writeOutput
 
@@ -106,7 +106,7 @@ public void writeOutput(byte[] body);
 
 **SRS_HTTPSCONNECTION_11_009: [**The function shall save the body to be sent with the request.**]**
 
-**SRS_HTTPSCONNECTION_11_010: [**The function shall throw an IllegalArgumentException if the request does not currently use method POST or PUT and the body is non-empty.**]**
+**SRS_HTTPSCONNECTION_11_010: [**The function shall throw an TransportException if the request does not currently use method POST or PUT and the body is non-empty.**]**
 
 
 ### readInput

@@ -13,11 +13,14 @@ public class HttpsIotHubConnection
 {
     public HttpsIotHubConnection(DeviceClientConfig config);
 
-    public ResponseMessage sendEvent(HttpsMessage msg) throws IOException;
-    public ResponseMessage sendHttpsMessage(HttpsMessage httpsMessage, HttpsMethod httpsMethod, String httpsPath) throws IOException;
+    public ResponseMessage sendEvent(HttpsMessage msg) throws TransportException;
+    public ResponseMessage sendHttpsMessage(HttpsMessage httpsMessage, HttpsMethod httpsMethod, String httpsPath) throws TransportException;
 
-    public Message receiveMessage() throws IOException, SecurityException;
-    public void sendMessageResult(IotHubMessageResult result) throws IOException;
+    public Message receiveMessage() throws TransportException;
+    public void sendMessageResult(IotHubMessageResult result) throws TransportException;
+
+    @Override
+    public void addListener(IotHubListener listener) throws TransportException
 }
 ```
 
@@ -57,13 +60,13 @@ public ResponseMessage sendEvent(HttpsMessage msg) throws IOException;
 
 **SRS_HTTPSIOTHUBCONNECTION_11_010: [**The function shall return a ResponseMessage with the status and payload.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_11_012: [**If the IoT Hub could not be reached, the function shall throw an IOException.**]**
-
-**SRS_HTTPSIOTHUBCONNECTION_34_052: [**If the SAS token used by this has expired, the function shall return a ResponseMessage object with the IotHubStatusCode UNAUTHORIZED.**]**
-
-**SRS_HTTPSIOTHUBCONNECTION_34_055: [**This function shall retrieve a sas token from its config to use in the https request header.**]**
+**SRS_HTTPSIOTHUBCONNECTION_11_012: [**If the IoT Hub could not be reached, the function shall throw a ProtocolException.**]**
 
 **SRS_HTTPSIOTHUBCONNECTION_34_059: [**If this config is using x509 authentication, this function shall retrieve its sslcontext from its x509 Authentication object.**]**
+
+**SRS_HTTPSIOTHUBCONNECTION_34_063: [**If this function encounters a NoRouteToHostException or UnknownHostException upon sending the http request, this function shall notify its listeners of a retryable ProtocolConnectionStatusException.**]**
+
+**SRS_HTTPSIOTHUBCONNECTION_34_064: [**Upon receiving a response code from the service from the HTTP request, this function shall check if that response code signifies a connection status exception and, if it is, this function shall notify its listeners of that exception.**]**
 
 
 ### sendHttpsMessage
@@ -92,9 +95,7 @@ public ResponseMessage sendHttpsMessage(HttpsMessage httpsMessage, HttpsMethod h
 
 **SRS_HTTPSIOTHUBCONNECTION_21_050: [**The function shall return a ResponseMessage with the status and payload.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_21_051: [**If the IoT Hub could not be reached, the function shall throw an IOException.**]**
-
-**SRS_HTTPSIOTHUBCONNECTION_34_053: [**If the SAS token used by this has expired, the function shall return a ResponseMessage object with the IotHubStatusCode UNAUTHORIZED.**]**
+**SRS_HTTPSIOTHUBCONNECTION_21_051: [**If the IoT Hub could not be reached, the function shall throw a ProtocolException.**]**
 
 **SRS_HTTPSIOTHUBCONNECTION_34_056: [**This function shall retrieve a sas token from its config to use in the https request header.**]**
 
@@ -127,9 +128,7 @@ public Message receiveMessage() throws IOException;
 
 **SRS_HTTPSIOTHUBCONNECTION_11_021: [**If a response with IoT Hub status code OK is not received, the function shall return null.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_11_023: [**If the IoT Hub could not be reached, the function shall throw an IOException.**]**
-
-**SRS_HTTPSIOTHUBCONNECTION_34_054: [**If the SAS token used by this has expired, the function shall return a Message object with a body of "Your sas token has expired".**]**
+**SRS_HTTPSIOTHUBCONNECTION_11_023: [**If the IoT Hub could not be reached, the function shall throw a ProtocolException.**]**
 
 **SRS_HTTPSIOTHUBCONNECTION_34_057: [**This function shall retrieve a sas token from its config to use in the https request header.**]**
 
@@ -168,13 +167,20 @@ public void sendMessageResult(IotHubMessageResult result) throws IOException;
 
 **SRS_HTTPSIOTHUBCONNECTION_25_042: [**The function shall set the IotHub SSL context by calling setSSLContext on the request.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_11_037: [**If the IoT Hub could not be reached, the function shall throw an IOException.**]**
+**SRS_HTTPSIOTHUBCONNECTION_11_037: [**If the IoT Hub could not be reached, the function shall throw a ProtocolException.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_11_038: [**If the IoT Hub status code in the response is not OK_EMPTY, the function shall throw an IOException.**]**
+**SRS_HTTPSIOTHUBCONNECTION_11_038: [**If the IoT Hub status code in the response is not OK_EMPTY, the function shall throw a IotHubServiceException.**]**
 
-**SRS_HTTPSIOTHUBCONNECTION_11_039: [**If the function is called before receiveMessage() returns a message, the function shall throw an IllegalStateException.**]**
-
-**SRS_HTTPSIOTHUBCONNECTION_34_058: [**If the saved SAS token for this connection has expired and cannot be renewed, this function shall throw a SecurityException.**]**
+**SRS_HTTPSIOTHUBCONNECTION_11_039: [**If the function is called before receiveMessage() returns a message, the function shall throw a TransportException.**]**
 
 **SRS_HTTPSIOTHUBCONNECTION_34_062: [**If this config is using x509 authentication, this function shall retrieve its sslcontext from its x509 Authentication object.**]**
 
+
+### addListener
+```java
+public void addListener(IotHubListener listener) throws TransportException
+```
+
+**SRS_HTTPSIOTHUBCONNECTION_34_065: [**If the provided listener object is null, this function shall throw a TransportException.**]**
+
+**SRS_HTTPSIOTHUBCONNECTION_34_066: [**This function shall save the provided listener object.**]**

@@ -3,6 +3,8 @@
 
 package com.microsoft.azure.sdk.iot.device.transport.https;
 
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -81,21 +83,21 @@ public class HttpsResponse
      * @return the header field value. If multiple values are present, they are
      * returned as a comma-separated list according to RFC2616.
      *
-     * @throws IllegalArgumentException if no value exists for the given field
+     * @throws TransportException if no value exists for the given field
      * name.
      */
-    public String getHeaderField(String field)
+    public String getHeaderField(String field) throws TransportException
     {
         // Codes_SRS_HTTPSRESPONSE_11_008: [The function shall match the header field name in a case-insensitive manner.]
         String canonicalizedField = canonicalizeFieldName(field);
         String values = this.headerFields.get(canonicalizedField);
-        // Codes_SRS_HTTPSRESPONSE_11_006: [If a value could not be found for the given header field name, the function shall throw an IllegalArgumentException.]
         if (values == null)
         {
             String errMsg = String.format("Could not find a value "
                     + "associated with the header field name '%s'.%n", field);
 
-            throw new IllegalArgumentException(errMsg);
+            // Codes_SRS_HTTPSRESPONSE_11_006: [If a value could not be found for the given header field name, the function shall throw a TransportException.]
+            throw new TransportException(new IllegalArgumentException(errMsg));
         }
 
         // Codes_SRS_HTTPSRESPONSE_11_004: [The function shall return a comma-separated list of the values associated with the header field name.]
