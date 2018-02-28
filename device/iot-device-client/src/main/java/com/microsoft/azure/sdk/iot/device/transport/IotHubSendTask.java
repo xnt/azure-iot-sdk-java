@@ -11,14 +11,14 @@ import com.microsoft.azure.sdk.iot.device.CustomLogger;
  */
 public final class IotHubSendTask implements Runnable
 {
-    private final IotHubTransport transport;
+    private final IotHubTransportNew transport;
 
     /**
      * Private logger for class
      */
     private final CustomLogger logger = new CustomLogger(this.getClass());
 
-    public IotHubSendTask(IotHubTransport transport)
+    public IotHubSendTask(IotHubTransportNew transport)
     {
         if (transport == null)
         {

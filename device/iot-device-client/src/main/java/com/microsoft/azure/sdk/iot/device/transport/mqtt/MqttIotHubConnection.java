@@ -4,6 +4,7 @@
 package com.microsoft.azure.sdk.iot.device.transport.mqtt;
 
 import com.microsoft.azure.sdk.iot.device.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.*;
 
 import javax.net.ssl.SSLContext;
@@ -35,13 +36,13 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
 
     private static final String TWIN_API_VERSION = "api-version=2016-11-14";
 
+
+    private IotHubListener listener;
+
     //Messaging clients
     private MqttMessaging deviceMessaging;
     private MqttDeviceTwin deviceTwin;
     private MqttDeviceMethod deviceMethod;
-
-    private IotHubConnectionStateCallback stateCallback;
-    private Object stateCallbackContext;
 
     /**
      * Constructs an instance from the given {@link DeviceClientConfig}
@@ -49,7 +50,7 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
      *
      * @param config the client configuration.
      */
-    public MqttIotHubConnection(DeviceClientConfig config) throws IllegalArgumentException
+    public MqttIotHubConnection(DeviceClientConfig config) throws TransportException
     {
         synchronized (MQTT_CONNECTION_LOCK)
         {
@@ -77,8 +78,8 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
                 {
                     if(config.getSasTokenAuthentication().getCurrentSasToken() == null || config.getSasTokenAuthentication().getCurrentSasToken().isEmpty())
                     {
-                        //Codes_SRS_MQTTIOTHUBCONNECTION_34_020: [If the config has no shared access token, device key, or x509 certificates, this constructor shall throw an IllegalArgumentException.]
-                        throw new IllegalArgumentException("Must have a deviceKey, a shared access token, or x509 certificate saved.");
+                        //Codes_SRS_MQTTIOTHUBCONNECTION_34_020: [If the config has no shared access token, device key, or x509 certificates, this constructor shall throw a TransportException.]
+                        throw new TransportException(new IllegalArgumentException("Must have a deviceKey, a shared access token, or x509 certificate saved."));
                     }
                 }
             }
@@ -96,9 +97,9 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
      * configuration. If the connection is already open, the function shall do
      * nothing.
      *
-     * @throws IOException if a connection could not to be established.
+     * @throws TransportException if a connection could not to be established.
      */
-    public void open(Queue<DeviceClientConfig> deviceClientConfigs) throws IOException
+    public void open(Queue<DeviceClientConfig> deviceClientConfigs) throws TransportException
     {
         if (deviceClientConfigs.size() > 1)
         {
@@ -127,8 +128,8 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
                 {
                     if (this.config.isUseWebsocket())
                     {
-                        //Codes_SRS_MQTTIOTHUBCONNECTION_34_027: [If this function is called while using websockets and x509 authentication, an UnsupportedOperation shall be thrown.]
-                        throw new UnsupportedOperationException("X509 authentication is not supported over MQTT_WS");
+                        //Codes_SRS_MQTTIOTHUBCONNECTION_34_027: [If this function is called while using websockets and x509 authentication, a TransportException shall be thrown.]
+                        throw new TransportException(new UnsupportedOperationException("X509 authentication is not supported over MQTT_WS"));
                     }
 
                     this.iotHubUserPassword = null;
@@ -165,11 +166,11 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
                 this.deviceMessaging.start();
                 this.state = State.OPEN;
             }
-            catch (Exception e)
+            catch (IOException e)
             {
                 this.state = State.CLOSED;
                 // Codes_SRS_MQTTIOTHUBCONNECTION_15_005: [If an MQTT connection is unable to be established
-                // for any reason, the function shall throw an IOException.]
+                // for any reason, the function shall throw a TransportException.]
                 if (this.deviceMethod != null)
                 {
                     this.deviceMethod.stop();
@@ -182,7 +183,7 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
                 {
                     this.deviceMessaging.stop();
                 }
-                throw new IOException(e);
+                throw new TransportException(e);
             }
         }
     }
@@ -192,7 +193,7 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
      * If the connection is already closed, the function shall do nothing.
      *
      */
-    public void close()
+    public void close() throws TransportException
     {
         // Codes_SRS_MQTTIOTHUBCONNECTION_15_007: [If the MQTT session is closed, the function shall do nothing.]
         if (this.state == State.CLOSED)
@@ -214,11 +215,69 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
 
             this.state = State.CLOSED;
         }
-
-        catch (Exception e)
+        catch (TransportException e)
         {
+            //make sure to close this object's state before rethrowing the exception
             this.state = State.CLOSED;
+            throw e;
         }
+    }
+
+    /**
+     * Receives a message, if one exists.
+     *
+     * @return the message received, or null if none exists.
+     *
+     * @throws TransportException if the connection state is currently closed.
+     */
+    public Message receiveMessage() throws TransportException
+    {
+        // Codes_SRS_MQTTIOTHUBCONNECTION_15_015: [If the MQTT connection is closed,
+        // the function shall throw a TransportException.]
+        if (this.state == State.CLOSED)
+        {
+            throw new TransportException(new IllegalStateException("The MQTT connection is currently closed. Call open() before attempting " +
+                    "to receive a message."));
+        }
+
+        // Codes_SRS_MQTTIOTHUBCONNECTION_15_014: [The function shall attempt to consume a message
+        // from various messaging clients.]
+        Message message = this.deviceMethod.receive();
+        if (message == null)
+        {
+            message = deviceTwin.receive();
+        }
+
+        if (message == null)
+        {
+            message = deviceMessaging.receive();
+        }
+
+        return message;
+    }
+
+    public void onConnectionLost(Throwable throwable)
+    {
+        listener.onConnectionLost(throwable);
+    }
+
+    public void onConnectionEstablished()
+    {
+        //Codes_SRS_MQTTIOTHUBCONNECTION_34_036: [This function shall notify its listeners that connection was established successfully.]
+        listener.onConnectionEstablished(null);
+    }
+
+    @Override
+    public void addListener(IotHubListener listener) throws TransportException
+    {
+        if (listener == null)
+        {
+            //Codes_SRS_MQTTIOTHUBCONNECTION_34_049: [If the provided listener object is null, this function shall throw a TransportException.]
+            throw new TransportException(new IllegalArgumentException("listener cannot be null"));
+        }
+
+        //Codes_SRS_MQTTIOTHUBCONNECTION_34_050: [This function shall save the provided listener object.]
+        this.listener = listener;
     }
 
     /**
@@ -228,9 +287,10 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
      *
      * @return the status code from sending the event message.
      *
-     * @throws IllegalStateException if the MqttIotHubConnection is not open
+     * @throws TransportException if the MqttIotHubConnection is not open
      */
-    public IotHubStatusCode sendEvent(Message message) throws IllegalStateException
+    @Override
+    public IotHubStatusCode sendMessage(Message message) throws TransportException
     {
         synchronized (MQTT_CONNECTION_LOCK)
         {
@@ -246,10 +306,10 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
             }
 
             // Codes_SRS_MQTTIOTHUBCONNECTION_15_013: [If the MQTT connection is closed,
-            // the function shall throw an IllegalStateException.]
+            // the function shall throw a TransportException.]
             if (this.state == State.CLOSED)
             {
-                throw new IllegalStateException("Cannot send event using a closed MQTT connection");
+                throw new TransportException(new IllegalStateException("Cannot send event using a closed MQTT connection"));
             }
 
             // Codes_SRS_MQTTIOTHUBCONNECTION_15_008: [The function shall send an event message
@@ -258,134 +318,28 @@ public class MqttIotHubConnection implements MqttConnectionStateListener, IotHub
             // the function shall return status code OK_EMPTY.]
             IotHubStatusCode result = IotHubStatusCode.OK_EMPTY;
 
-            if (this.config.getAuthenticationType() == DeviceClientConfig.AuthType.SAS_TOKEN && this.config.getSasTokenAuthentication().isRenewalNecessary())
+            // Codes_SRS_MQTTIOTHUBCONNECTION_15_009: [The function shall send the message payload.]
+            if (message.getMessageType() == MessageType.DEVICE_METHODS)
             {
-                if (this.stateCallback != null)
-                {
-                    //Codes_SRS_MQTTIOTHUBCONNECTION_34_036: [If the sas token saved in the config has expired and needs to be renewed and if there is a connection state callback saved, this function shall invoke that callback with Status SAS_TOKEN_EXPIRED.]
-                    this.stateCallback.execute(IotHubConnectionState.SAS_TOKEN_EXPIRED, this.stateCallbackContext);
-                }
-
-                //Codes_SRS_MQTTIOTHUBCONNECTION_34_035: [If the sas token saved in the config has expired and needs to be renewed, this function shall return UNAUTHORIZED.]
-                return IotHubStatusCode.UNAUTHORIZED;
+                this.deviceMethod.start();
+                this.deviceMethod.send((IotHubTransportMessage) message);
             }
-
-            try
+            else if (message.getMessageType() == MessageType.DEVICE_TWIN)
             {
-                // Codes_SRS_MQTTIOTHUBCONNECTION_15_009: [The function shall send the message payload.]
-                if (message.getMessageType() == MessageType.DEVICE_METHODS)
-                {
-                    this.deviceMethod.start();
-                    this.deviceMethod.send((IotHubTransportMessage) message);
-                }
-                else if (message.getMessageType() == MessageType.DEVICE_TWIN)
-                {
-                    this.deviceTwin.start();
-                    this.deviceTwin.send((IotHubTransportMessage) message);
-                }
-                else
-                {
-                    this.deviceMessaging.send(message);
-                }
+                this.deviceTwin.start();
+                this.deviceTwin.send((IotHubTransportMessage) message);
             }
-            // Codes_SRS_MQTTIOTHUBCONNECTION_15_012: [If the message was not successfully
-            // received by the service, the function shall return status code ERROR.]
-            catch (Exception e)
+            else
             {
-                result = IotHubStatusCode.ERROR;
+                this.deviceMessaging.send(message);
             }
 
             return result;
         }
     }
 
-    /**
-     * Receives a message, if one exists.
-     *
-     * @return the message received, or null if none exists.
-     *
-     * @throws IllegalStateException if the connection state is currently closed.
-     * @throws IOException if receiving on any of messaging clients fail.
-     */
-    public Message receiveMessage() throws IllegalStateException, IOException
-    {
-        // Codes_SRS_MQTTIOTHUBCONNECTION_15_015: [If the MQTT connection is closed,
-        // the function shall throw an IllegalStateException.]
-        if (this.state == State.CLOSED)
-        {
-            throw new IllegalStateException("The MQTT connection is currently closed. Call open() before attempting " +
-                    "to receive a message.");
-        }
-
-
-        // Codes_SRS_MQTTIOTHUBCONNECTION_15_014: [The function shall attempt to consume a message
-        // from various messaging clients.]
-        // Codes_SRS__MQTTIOTHUBCONNECTION_34_016: [If any of the messaging clients throw an exception, The associated message will be removed from the queue and the exception will be propagated up to the receive task.]
-        Message message = this.deviceMethod.receive();
-        if (message == null)
-        {
-            message = deviceTwin.receive();
-        }
-
-        if (message == null)
-        {
-            message = deviceMessaging.receive();
-        }
-
-        return message;
-    }
-
-    /**
-     * Saves the provided callback and callbackContext objects to be used for connection state updates
-     * @param callback the callback to fire
-     * @param callbackContext the context to include
-     * @throws IllegalArgumentException if the provided callback object is null
-     */
-    void registerConnectionStateCallback(IotHubConnectionStateCallback callback, Object callbackContext)
-    {
-        if (callback == null)
-        {
-            //Codes_SRS_MQTTIOTHUBCONNECTION_34_033: [If the provided callback object is null, this function shall throw an IllegalArgumentException.]
-            throw new IllegalArgumentException("Callback cannot be null");
-        }
-
-        //Codes_SRS_MQTTIOTHUBCONNECTION_34_034: [This function shall save the provided callback and callback context.]
-        this.stateCallback = callback;
-        this.stateCallbackContext = callbackContext;
-    }
-
-    public void connectionLost()
-    {
-        if (this.stateCallback != null)
-        {
-            //Codes_SRS_MQTTIOTHUBCONNECTION_34_028: [If this object's connection state callback is not null, this function shall fire that callback with the saved context and status CONNECTION_DROP.]
-            this.stateCallback.execute(IotHubConnectionState.CONNECTION_DROP, this.stateCallbackContext);
-        }
-    }
-
-    public void connectionEstablished()
-    {
-        if (this.stateCallback != null)
-        {
-            //Codes_SRS_MQTTIOTHUBCONNECTION_34_029: [If this object's connection state callback is not null, this function shall fire that callback with the saved context and status CONNECTION_SUCCESS.]
-            this.stateCallback.execute(IotHubConnectionState.CONNECTION_SUCCESS, this.stateCallbackContext);
-        }
-    }
-
     @Override
-    public void addListener(IotHubListener listener) throws IOException
-    {
-
-    }
-
-    @Override
-    public IotHubStatusCode sendMessage(Message message) throws IOException
-    {
-        return null;
-    }
-
-    @Override
-    public boolean sendMessageResult(Message message, IotHubMessageResult result) throws IOException
+    public boolean sendMessageResult(Message message, IotHubMessageResult result) throws TransportException
     {
         return false;
     }
