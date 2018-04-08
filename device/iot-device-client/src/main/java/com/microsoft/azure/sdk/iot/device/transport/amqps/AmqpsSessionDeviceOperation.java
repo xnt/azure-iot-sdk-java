@@ -1,11 +1,12 @@
 package com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import org.apache.qpid.proton.engine.*;
 
-import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +30,10 @@ public class AmqpsSessionDeviceOperation
     private AmqpsDeviceAuthenticationCBSTokenRenewalTask tokenRenewalTask = null;
 
     private static final int MAX_WAIT_TO_AUTHENTICATE = 10*1000;
-    private final ObjectLock authenticationLock = new ObjectLock();
+    private static final double PERCENTAGE_FACTOR = 0.75;
+    private static final int SEC_IN_MILLISEC = 1000;
+
+    private final CountDownLatch authenticationLatch = new CountDownLatch(1);
 
     private List<UUID> cbsCorrelationIdList = Collections.synchronizedList(new ArrayList<UUID>());
 
@@ -40,8 +44,9 @@ public class AmqpsSessionDeviceOperation
      *
      * @param deviceClientConfig the configuration of teh device.
      * @param amqpsDeviceAuthentication the authentication object associated with the device.
+     * @throws IllegalArgumentException if deviceClientConfig or amqpsDeviceAuthentication is null
      */
-    public AmqpsSessionDeviceOperation(final DeviceClientConfig deviceClientConfig, AmqpsDeviceAuthentication amqpsDeviceAuthentication)
+    public AmqpsSessionDeviceOperation(final DeviceClientConfig deviceClientConfig, AmqpsDeviceAuthentication amqpsDeviceAuthentication) throws IllegalArgumentException
     {
         // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_001: [The constructor shall throw IllegalArgumentException if the deviceClientConfig or the amqpsDeviceAuthentication parameter is null.]
         if (deviceClientConfig == null)
@@ -101,12 +106,12 @@ public class AmqpsSessionDeviceOperation
     /**
      * Start the authentication process.
      * In SAS case it is nothing to do.
-     * In the CBS case start openeing the authentication links
+     * In the CBS case start opening the authentication links
      * and send authentication messages.
      *
-     * @throws IOException throw if Proton operation throws.
+     * @throws TransportException if authentication message reply takes too long.
      */
-    public void authenticate() throws IOException
+    public void authenticate() throws TransportException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -122,23 +127,21 @@ public class AmqpsSessionDeviceOperation
             }
 
             this.amqpsDeviceAuthentication.authenticate(this.deviceClientConfig, correlationId);
-            synchronized (this.authenticationLock)
-            {
-                // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_005: [The function shall set the authentication state to not authenticated if the authentication type is CBS.]
-                this.amqpsAuthenticatorState = AmqpsDeviceAuthenticationState.AUTHENTICATING;
-                try
-                {
-                    // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_062: [The function shall start the authentication process and start the lock wait if the authentication type is CBS.]
-                    this.authenticationLock.waitLock(MAX_WAIT_TO_AUTHENTICATE);
-                }
-                catch (InterruptedException e)
-                {
-                    cbsCorrelationIdList.remove(correlationId);
 
-                    // Codes_SRS_AMQPSESSIONMANAGER_12_017: [The function shall throw IOException if the lock throws.]
-                    throw new IOException("Waited too long for the authentication message reply.");
-                }
+            // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_005: [The function shall set the authentication state to not authenticated if the authentication type is CBS.]
+            this.amqpsAuthenticatorState = AmqpsDeviceAuthenticationState.AUTHENTICATING;
+            try
+            {
+                // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_062: [The function shall start the authentication process and start the lock wait if the authentication type is CBS.]
+                this.authenticationLatch.await(MAX_WAIT_TO_AUTHENTICATE, TimeUnit.MILLISECONDS);
             }
+            catch (InterruptedException e)
+            {
+                // Codes_SRS_AMQPSESSIONDEVICEOPERATION_34_063: [If an InterruptedException is encountered while waiting for authentication to finish, this function shall throw a TransportException.]
+                cbsCorrelationIdList.remove(correlationId);
+                throw new TransportException("Waited too long for the authentication message reply.");
+            }
+
         }
 
         logger.LogDebug("Exited from method %s", logger.getMethodName());
@@ -147,18 +150,15 @@ public class AmqpsSessionDeviceOperation
     /**
      * Start the token renewal process using CBS authentication.
      *
-     * @throws IOException throw if Proton operation throws.
+     * @throws TransportException throw if Proton operation throws.
      */
-    public void renewToken() throws IOException
+    public void renewToken() throws TransportException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
         if ((this.deviceClientConfig.getAuthenticationType() == DeviceClientConfig.AuthType.SAS_TOKEN) &&
                 (this.amqpsAuthenticatorState == AmqpsDeviceAuthenticationState.AUTHENTICATED))
         {
-            // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_050: [The function shall renew the sas token if the authentication type is CBS and the authentication state is authenticated.]
-            this.deviceClientConfig.getSasTokenAuthentication().getRenewedSasToken();
-
             // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_052: [The function shall restart the scheduler with the calculated renewal period if the authentication type is CBS.]
             if (scheduleRenewalThread())
             {
@@ -206,10 +206,9 @@ public class AmqpsSessionDeviceOperation
     /**
      *
      * @param session the Proton session to open the links on.
-     * @throws IOException throw if Proton operation throws.
-     * @throws IllegalArgumentException throw if session parameter is null.
+     * @throws TransportException throw if Proton operation throws.
      */
-    void openLinks(Session session) throws IOException, IllegalArgumentException
+    void openLinks(Session session) throws TransportException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -252,10 +251,10 @@ public class AmqpsSessionDeviceOperation
      * Delegate the link initialization call to device operation objects.
      *
      * @param link the link ti initialize.
-     * @throws IOException throw if Proton operation throws.
+     * @throws TransportException throw if Proton operation throws.
      * @throws IllegalArgumentException throw if the link parameter is null.
      */
-    void initLink(Link link) throws IOException, IllegalArgumentException
+    void initLink(Link link) throws TransportException, IllegalArgumentException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -284,10 +283,11 @@ public class AmqpsSessionDeviceOperation
      * @param messageType the message type to find the sender.
      * @param iotHubConnectionString the deviceconnection string to
      *                               find the sender.
-     *
+     * @throws IllegalStateException if sender link has not been initialized
+     * @throws IllegalArgumentException if deliveryTag's length is 0
      * @return Integer
      */
-    Integer sendMessage(org.apache.qpid.proton.message.Message message, MessageType messageType, IotHubConnectionString iotHubConnectionString) throws IOException
+    Integer sendMessage(org.apache.qpid.proton.message.Message message, MessageType messageType, IotHubConnectionString iotHubConnectionString) throws IllegalStateException, IllegalArgumentException
     {
         // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_012: [The function shall return -1 if the state is not authenticated.]
         if (this.amqpsAuthenticatorState == AmqpsDeviceAuthenticationState.AUTHENTICATED)
@@ -340,10 +340,11 @@ public class AmqpsSessionDeviceOperation
      * @param offset the start index to read the binary.
      * @param length the length of the binary to read.
      * @param deliveryTag the message delivery tag.
-     *
+     * @throws IllegalStateException if sender link has not been initialized
+     * @throws IllegalArgumentException if deliveryTag's length is 0
      * @return Integer
      */
-    private Integer sendMessageAndGetDeliveryHash(MessageType messageType, byte[] msgData, int offset, int length, byte[] deliveryTag) throws IllegalStateException, IllegalArgumentException, IOException
+    private Integer sendMessageAndGetDeliveryHash(MessageType messageType, byte[] msgData, int offset, int length, byte[] deliveryTag) throws IllegalStateException, IllegalArgumentException
     {
         Integer deliveryHash = -1;
 
@@ -366,11 +367,12 @@ public class AmqpsSessionDeviceOperation
      * object by link name. 
      *
      * @param linkName the link name to identify the receiver.
-     *
+     * @throws IllegalArgumentException if linkName argument is empty
+     * @throws TransportException if Proton throws
      * @return AmqpsMessage if the receiver found the received 
      *         message, otherwise null.
      */
-    synchronized AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, IOException
+    synchronized AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, TransportException
     {
         AmqpsMessage amqpsMessage = null;
 
@@ -389,16 +391,13 @@ public class AmqpsSessionDeviceOperation
                     {
                         if (this.amqpsDeviceAuthentication.authenticationMessageReceived(amqpsMessage, correlationId))
                         {
-                            synchronized (this.authenticationLock)
-                            {
-                                // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_053: [The function shall call authenticationMessageReceived with the correlation ID on the authentication object and if it returns true set the authentication state to authenticated.]
-                                this.amqpsAuthenticatorState = AmqpsDeviceAuthenticationState.AUTHENTICATED;
-                                // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_054: [The function shall call notify the lock if after receiving the message and the authentication is in authenticating state.]
-                                this.authenticationLock.notifyLock();
+                            // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_053: [The function shall call authenticationMessageReceived with the correlation ID on the authentication object and if it returns true set the authentication state to authenticated.]
+                            this.amqpsAuthenticatorState = AmqpsDeviceAuthenticationState.AUTHENTICATED;
+                            // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_054: [The function shall call notify the lock if after receiving the message and the authentication is in authenticating state.]
+                            this.authenticationLatch.countDown();
 
-                                uuidFound = correlationId;
-                                break;
-                            }
+                            uuidFound = correlationId;
+                            break;
                         }
                     }
                     // Codes_SRS_AMQPSESSIONDEVICEOPERATION_12_056: [The function shall remove the correlationId from the list if it is found.]
@@ -454,11 +453,11 @@ public class AmqpsSessionDeviceOperation
      * specific converter. 
      *
      * @param message the message to convert.
-     *
+     * @throws TransportException if conversion fails.
      * @return AmqpsConvertToProtonReturnValue the result of the 
      *         conversion containing the Proton message.
      */
-    AmqpsConvertToProtonReturnValue convertToProton(Message message) throws IOException
+    AmqpsConvertToProtonReturnValue convertToProton(Message message) throws TransportException
     {
         AmqpsConvertToProtonReturnValue amqpsConvertToProtonReturnValue = null;
 
@@ -485,11 +484,11 @@ public class AmqpsSessionDeviceOperation
      * @param amqpsMessage the message to convert.
      * @param deviceClientConfig the device client configuration to 
      *                           identify the converter..
-     *
+     * @throws TransportException if conversion fails
      * @return AmqpsConvertToProtonReturnValue the result of the 
      *         conversion containing the Proton message.
      */
-    AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws IOException
+    AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws TransportException
     {
         AmqpsConvertFromProtonReturnValue amqpsHandleMessageReturnValue = null;
 
@@ -566,14 +565,15 @@ public class AmqpsSessionDeviceOperation
      *
      * @param validInSecs the time
      * @return 75% of the given time
+     * @throws IllegalArgumentException if validInSecs is less than 0
      */
-    private long calculateRenewalTimeInMilliSecs(long validInSecs)
+    private long calculateRenewalTimeInMilliSecs(long validInSecs) throws IllegalArgumentException
     {
-        if (validInSecs <= 0)
+        if (validInSecs < 0)
         {
-            throw new IllegalArgumentException("validInSecs cannot be null.");
+            throw new IllegalArgumentException("validInSecs cannot be less than 0.");
         }
 
-        return 3 * (validInSecs / 4) * 1000;
+        return (long)(validInSecs * PERCENTAGE_FACTOR * SEC_IN_MILLISEC);
     }
 }

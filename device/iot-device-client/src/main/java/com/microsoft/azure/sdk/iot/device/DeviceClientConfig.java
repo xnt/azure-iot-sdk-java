@@ -4,6 +4,8 @@
 package com.microsoft.azure.sdk.iot.device;
 
 import com.microsoft.azure.sdk.iot.device.auth.*;
+import com.microsoft.azure.sdk.iot.device.transport.ExponentialBackoffWithJitter;
+import com.microsoft.azure.sdk.iot.device.transport.RetryPolicy;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProvider;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProviderTpm;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProviderX509;
@@ -20,6 +22,8 @@ public final class DeviceClientConfig
     private static final int DEFAULT_READ_TIMEOUT_MILLIS = 240000;
     /** The default value for messageLockTimeoutSecs. */
     private static final int DEFAULT_MESSAGE_LOCK_TIMEOUT_SECS = 180;
+
+    private static final long DEFAULT_OPERATION_TIMEOUT = 4 * 60 * 1000; //4 minutes
 
     private boolean useWebsocket;
 
@@ -59,6 +63,11 @@ public final class DeviceClientConfig
     }
 
     private AuthType authenticationType;
+    private long operationTimeout = DEFAULT_OPERATION_TIMEOUT;
+    private IotHubClientProtocol protocol;
+
+    // Codes_SRS_DEVICECLIENTCONFIG_28_001: [The class shall have ExponentialBackOff as the default retryPolicy.]
+    private RetryPolicy retryPolicy = new ExponentialBackoffWithJitter();
 
     /**
      * Constructor
@@ -190,6 +199,45 @@ public final class DeviceClientConfig
         this.logger = new CustomLogger(this.getClass());
         logger.LogInfo("DeviceClientConfig object is created successfully with IotHubName=%s, deviceID=%s , method name is %s ",
                 connectionString.getHostName(), connectionString.getDeviceId(), logger.getMethodName());
+    }
+
+    public IotHubClientProtocol getProtocol()
+    {
+        return protocol;
+    }
+
+    void setProtocol(IotHubClientProtocol protocol)
+    {
+        this.protocol = protocol;
+    }
+
+    /**
+     * Setter for RetryPolicy
+     *
+     * @param retryPolicy The types of retry policy to be used
+     * @throws IllegalArgumentException if retry policy is null
+     */
+    public void setRetryPolicy(RetryPolicy retryPolicy) throws IllegalArgumentException
+    {
+        // Codes_SRS_DEVICECLIENTCONFIG_28_002: [This function shall throw IllegalArgumentException retryPolicy is null.]
+        if (retryPolicy == null)
+        {
+            throw new IllegalArgumentException("Retry Policy cannot be null.");
+        }
+
+        // Codes_SRS_DEVICECLIENTCONFIG_28_003: [This function shall set retryPolicy.]
+        this.retryPolicy = retryPolicy;
+    }
+
+    /**
+     * Getter for RetryPolicy
+     *
+     * @return The value of RetryPolicy
+     */
+    public RetryPolicy getRetryPolicy()
+    {
+        // Codes_SRS_DEVICECLIENTCONFIG_28_004: [This function shall return the saved RetryPolicy object.]
+        return this.retryPolicy;
     }
 
     /**
@@ -434,6 +482,33 @@ public final class DeviceClientConfig
     {
         //Codes_SRS_DEVICECLIENTCONFIG_34_039: [This function shall return the type of authentication that the config is set up to use.]
         return authenticationType;
+    }
+
+    /**
+     * Sets the device operation timeout
+     * @param timeout the amount of time, in milliseconds, that a given device operation can last before expiring
+     * @throws IllegalArgumentException if timeout is 0 or negative
+     */
+    void setOperationTimeout(long timeout) throws IllegalArgumentException
+    {
+        if (timeout < 1)
+        {
+            //Codes_SRS_DEVICECLIENTCONFIG_34_030: [If the provided timeout is 0 or negative, this function shall throw an IllegalArgumentException.]
+            throw new IllegalArgumentException("Operation timeout cannot be 0 or negative");
+        }
+
+        //Codes_SRS_DEVICECLIENTCONFIG_34_031: [This function shall save the provided operation timeout.]
+        this.operationTimeout = timeout;
+    }
+
+    /**
+     * Getter for the device operation timeout
+     * @return the amount of time, in milliseconds, before any device operation expires
+     */
+    public long getOperationTimeout()
+    {
+        //Codes_SRS_DEVICECLIENTCONFIG_34_032: [This function shall return the saved operation timeout.]
+        return this.operationTimeout;
     }
 
     @SuppressWarnings("unused")

@@ -1,5 +1,7 @@
 package com.microsoft.azure.sdk.iot.device;
 
+import com.microsoft.azure.sdk.iot.device.transport.RetryPolicy;
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -103,16 +105,21 @@ public class TransportClient
         if (this.deviceClientList.size() > 0)
         {
             // Codes_SRS_TRANSPORTCLIENT_12_011: [The function shall create a new DeviceIO using the first registered device client's configuration.]
-            this.deviceIO = new DeviceIO(deviceClientList.get(0).getConfig(), iotHubClientProtocol, SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS_AMQPS);
+            this.deviceIO = new DeviceIO(deviceClientList.get(0).getConfig(), SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS_AMQPS);
+            deviceClientList.get(0).setDeviceIO(this.deviceIO);
 
             // Codes_SRS_TRANSPORTCLIENT_12_012: [The function shall set the created DeviceIO to all registered device client.]
-            for (int i = 0; i < this.deviceClientList.size(); i++)
+            for (int i = 1; i < this.deviceClientList.size(); i++)
             {
                 deviceClientList.get(i).setDeviceIO(this.deviceIO);
+                //propagate this client config to amqp connection
+                this.deviceIO.addClient(deviceClientList.get(i).getConfig());
             }
 
             // Codes_SRS_TRANSPORTCLIENT_12_013: [The function shall open the transport in multiplexing mode.]
-            this.deviceIO.multiplexOpen(deviceClientList);
+            //this.deviceIO.multiplexOpen(deviceClientList);
+            // if client is added just open to get rid of multiplex open.
+            this.deviceIO.open();
         }
 
         this.transportClientState = TransportClientState.OPENED;
@@ -173,6 +180,31 @@ public class TransportClient
     }
 
     /**
+     * Sets the given retry policy on the underlying transport
+     * Sets the given retry policy on the underlying transport
+     * <a href="https://github.com/Azure/azure-iot-sdk-java/blob/master/device/iot-device-client/devdoc/requirement_docs/com/microsoft/azure/iothub/retryPolicy.md">
+     *     See more details about the default retry policy and about using custom retry policies here</a>
+     * @param retryPolicy the new interval in milliseconds
+     * @throws UnsupportedOperationException if no device client has been registered yet.
+     */
+    public void setRetryPolicy(RetryPolicy retryPolicy)
+    {
+        if (deviceClientList.size() == 0)
+        {
+            // Codes_SRS_TRANSPORTCLIENT_28_001: [The function shall throw UnsupportedOperationException if there is no registered device client]
+            throw new UnsupportedOperationException("TransportClient.setRetryPolicy only works when there is at least one registered device client.");
+        }
+
+        for (int i = 0; i < this.deviceClientList.size(); i++)
+        {
+            // Codes_SRS_TRANSPORTCLIENT_28_002: [The function shall set the retry policies to all registered device clients.]
+            deviceClientList.get(i).getConfig().setRetryPolicy(retryPolicy);
+        }
+
+        logger.LogInfo("Retry policy updated successfully in the transport client, method name is %s ", logger.getMethodName());
+    }
+
+    /**
      * Registers the given device into the transport client.
      *
      * @throws IllegalArgumentException if the deviceClient parameter is null.
@@ -196,6 +228,15 @@ public class TransportClient
         this.deviceClientList.add(deviceClient);
 
         logger.LogInfo("DeviceClient is added successfully to the transport client, method name is %s ", logger.getMethodName());
+    }
+
+    /**
+     * Getter for the iotHubClientProtocol
+     * @return the current protocol for the iotHubClient
+     */
+    IotHubClientProtocol getIotHubClientProtocol()
+    {
+        return iotHubClientProtocol;
     }
 
     /**

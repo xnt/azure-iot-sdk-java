@@ -5,7 +5,9 @@ package com.microsoft.azure.sdk.iot.device;
 
 import com.microsoft.azure.sdk.iot.deps.serializer.ParserUtility;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.fileupload.FileUpload;
+import com.microsoft.azure.sdk.iot.device.transport.RetryPolicy;
 import com.microsoft.azure.sdk.iot.device.transport.amqps.IoTHubConnectionType;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProvider;
 
@@ -115,6 +117,7 @@ public final class DeviceClient implements Closeable
 
     private TransportClient transportClient;
 
+
     /**
      * Constructor that takes a connection string and a transport client as an argument.
      *
@@ -155,6 +158,7 @@ public final class DeviceClient implements Closeable
         // Codes_SRS_DEVICECLIENT_12_009: [The constructor shall interpret the connection string as a set of key-value pairs delimited by ';', using the object IotHubConnectionString.]
         IotHubConnectionString iotHubConnectionString = new IotHubConnectionString(connString);
         this.config = new DeviceClientConfig(iotHubConnectionString, DeviceClientConfig.AuthType.SAS_TOKEN);
+        this.config.setProtocol(this.transportClient.getIotHubClientProtocol());
 
         // Codes_SRS_DEVICECLIENT_12_011: [The constructor shall set the deviceIO to null.]
         this.deviceIO = null;
@@ -192,6 +196,7 @@ public final class DeviceClient implements Closeable
         //Codes_SRS_DEVICECLIENT_34_055: [If the provided connection string contains an expired SAS token, a SecurityException shall be thrown.]
         IotHubConnectionString iotHubConnectionString = new IotHubConnectionString(connString);
         this.config = new DeviceClientConfig(iotHubConnectionString, DeviceClientConfig.AuthType.SAS_TOKEN);
+        this.config.setProtocol(protocol);
 
         //Codes_SRS_DEVICECLIENT_21_002: [The constructor shall initialize the IoT Hub transport for the protocol specified, creating a instance of the deviceIO.]
         //Codes_SRS_DEVICECLIENT_21_003: [The constructor shall save the connection configuration using the object DeviceClientConfig.]
@@ -220,6 +225,7 @@ public final class DeviceClient implements Closeable
         //Codes_SRS_DEVICECLIENT_34_063: [This function shall save the provided certificate and key within its config.]
         IotHubConnectionString iotHubConnectionString = new IotHubConnectionString(connString);
         this.config = new DeviceClientConfig(iotHubConnectionString, publicKeyCertificate, isCertificatePath, privateKey, isPrivateKeyPath);
+        this.config.setProtocol(protocol);
 
         //Codes_SRS_DEVICECLIENT_34_059: [The constructor shall initialize the IoT Hub transport for the protocol specified, creating a instance of the deviceIO.]
         //Codes_SRS_DEVICECLIENT_34_060: [The constructor shall save the connection configuration using the object DeviceClientConfig.]
@@ -266,6 +272,7 @@ public final class DeviceClient implements Closeable
         //Codes_SRS_DEVICECLIENT_34_066: [The provided security provider will be saved in config.]
         IotHubConnectionString connectionString = new IotHubConnectionString(uri, deviceId, null, null);
         this.config = new DeviceClientConfig(connectionString, securityProvider);
+        this.config.setProtocol(protocol);
 
         //Codes_SRS_DEVICECLIENT_34_067: [The constructor shall initialize the IoT Hub transport for the protocol specified, creating a instance of the deviceIO.]
         commonConstructorSetup(protocol);
@@ -325,7 +332,7 @@ public final class DeviceClient implements Closeable
 
         this.ioTHubConnectionType = IoTHubConnectionType.SINGLE_CLIENT;
         this.transportClient = null;
-        this.deviceIO = new DeviceIO(this.config, protocol, SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS);
+        this.deviceIO = new DeviceIO(this.config, SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS);
 
         this.logger = new CustomLogger(this.getClass());
         logger.LogInfo("DeviceClient object is created successfully, method name is %s ", logger.getMethodName());
@@ -834,8 +841,7 @@ public final class DeviceClient implements Closeable
      * @throws UnsupportedOperationException if this method is called when using x509 authentication
      */
     public void uploadToBlobAsync(String destinationBlobName, InputStream inputStream, long streamLength,
-                                  IotHubEventCallback callback, Object callbackContext)
-            throws IllegalArgumentException, IOException
+                                  IotHubEventCallback callback, Object callbackContext) throws IllegalArgumentException, IOException
     {
         /* Codes_SRS_DEVICECLIENT_21_044: [The uploadToBlobAsync shall asynchronously upload the stream in `inputStream` to the blob in `destinationBlobName`.] */
 
@@ -1201,11 +1207,12 @@ public final class DeviceClient implements Closeable
 
     /**
      * Registers a callback to be executed whenever the connection to the device is lost or established.
-     *
+     * @deprecated as of release 1.10.0 by {@link #registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback callback, Object callbackContext)}
      * @param callback the callback to be called.
      * @param callbackContext a context to be passed to the callback. Can be
      * {@code null} if no callback is provided.
      */
+    @Deprecated
     public void registerConnectionStateCallback(IotHubConnectionStateCallback callback, Object callbackContext)
     {
         //Codes_SRS_DEVICECLIENT_99_003: [If the callback is null the method shall throw an IllegalArgument exception.]
@@ -1217,6 +1224,55 @@ public final class DeviceClient implements Closeable
         //Codes_SRS_DEVICECLIENT_99_001: [The registerConnectionStateCallback shall register the callback with the Device IO even if the not open.]
         //Codes_SRS_DEVICECLIENT_99_002: [The registerConnectionStateCallback shall register the callback even if the client is not open.]
         this.deviceIO.registerConnectionStateCallback(callback, callbackContext);
+    }
+
+    /**
+     * Registers a callback to be executed when the connection status of the device changes. The callback will be fired
+     * with a status and a reason why the device's status changed. When the callback is fired, the provided context will
+     * be provided alongside the status and reason.
+     *
+     * @param callback The callback to be fired when the connection status of the device changes
+     * @param callbackContext a context to be passed to the callback. Can be
+     * {@code null} if no callback is provided.
+     * @throws IllegalArgumentException if provided callback is null
+     */
+    public void registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback callback, Object callbackContext) throws IllegalArgumentException
+    {
+        if (callback == null)
+        {
+            //Codes_SRS_DEVICECLIENT_34_068: [If the callback is null the method shall throw an IllegalArgument exception.]
+            throw new IllegalArgumentException("Callback cannot be null");
+        }
+
+        //Codes_SRS_DEVICECLIENT_34_069: [This function shall register the provided callback and context with its device IO instance.]
+        this.deviceIO.registerConnectionStatusChangeCallback(callback, callbackContext);
+    }
+
+    /**
+     * Sets the given retry policy on the underlying transport
+     * <a href="https://github.com/Azure/azure-iot-sdk-java/blob/master/device/iot-device-client/devdoc/requirement_docs/com/microsoft/azure/iothub/retryPolicy.md">
+     *     See more details about the default retry policy and about using custom retry policies here</a>
+     * @param retryPolicy the new interval in milliseconds
+     */
+    public void setRetryPolicy(RetryPolicy retryPolicy)
+    {
+        // Codes_SRS_DEVICECLIENT_28_001: [The function shall set the device config's RetryPolicy .]
+        this.config.setRetryPolicy(retryPolicy);
+
+        logger.LogInfo("Retry policy updated successfully in the device client config, method name is %s ", logger.getMethodName());
+    }
+
+    /**
+     * Set the length of time, in milliseconds, that any given operation will expire in. These operations include
+     * reconnecting upon a connection drop and sending a message.
+     * @param timeout the length in time, in milliseconds, until a given operation shall expire
+     * @throws IllegalArgumentException if the provided timeout is 0 or negative
+     */
+    public void setOperationTimeout(long timeout) throws IllegalArgumentException
+    {
+        // Codes_SRS_DEVICECLIENT_34_070: [The function shall set the device config's operation timeout .]
+        this.config.setOperationTimeout(timeout);
+        logger.LogInfo("Device Operation Timeout updated successfully in the device client config, method name is %s ", logger.getMethodName());
     }
 
     /**

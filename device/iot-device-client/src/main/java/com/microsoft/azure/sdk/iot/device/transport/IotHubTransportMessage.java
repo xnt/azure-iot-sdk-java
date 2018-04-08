@@ -4,11 +4,7 @@
 package com.microsoft.azure.sdk.iot.device.transport;
 
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.DeviceOperations;
-import com.microsoft.azure.sdk.iot.device.IotHubMethod;
-import com.microsoft.azure.sdk.iot.device.Message;
-import com.microsoft.azure.sdk.iot.device.MessageType;
-
-import static com.microsoft.azure.sdk.iot.device.DeviceTwin.DeviceOperations.DEVICE_OPERATION_UNKNOWN;
+import com.microsoft.azure.sdk.iot.device.*;
 
 /**
  * Extends Message, adding transport artifacts.
@@ -30,6 +26,8 @@ public class IotHubTransportMessage extends Message
     private String requestId;
     private String status;
     private DeviceOperations operationType;
+    private MessageCallback messageCallback;
+    private Object messageCallbackContext;
 
     /**
      * Constructor with binary data and message type
@@ -51,7 +49,7 @@ public class IotHubTransportMessage extends Message
         this.version = null;
         this.requestId = null;
         this.status = null;
-        this.operationType = DEVICE_OPERATION_UNKNOWN;
+        this.operationType = DeviceOperations.DEVICE_OPERATION_UNKNOWN;
     }
 
     /**
@@ -67,7 +65,41 @@ public class IotHubTransportMessage extends Message
         this.version = null;
         this.requestId = null;
         this.status = null;
-        this.operationType = DEVICE_OPERATION_UNKNOWN;
+        this.operationType = DeviceOperations.DEVICE_OPERATION_UNKNOWN;
+    }
+
+    public IotHubTransportMessage(byte[] data, MessageType messageType, String messageId, String correlationId, MessageProperty[] messageProperties)
+    {
+        //Codes_SRS_IOTHUBTRANSPORTMESSAGE_34_017: [This constructor shall return an instance of IotHubTransportMessage with provided bytes, messagetype, correlationid, messageid, and application properties.]
+        super(data);
+        super.setMessageType(messageType);
+        this.setMessageId(messageId);
+        this.setCorrelationId(correlationId);
+
+        for (MessageProperty messageProperty : messageProperties)
+        {
+            this.setProperty(messageProperty.getName(), messageProperty.getValue());
+        }
+    }
+
+    public MessageCallback getMessageCallback()
+    {
+        return messageCallback;
+    }
+
+    public void setMessageCallback(MessageCallback messageCallback)
+    {
+        this.messageCallback = messageCallback;
+    }
+
+    public Object getMessageCallbackContext()
+    {
+        return messageCallbackContext;
+    }
+
+    public void setMessageCallbackContext(Object messageCallbackContext)
+    {
+        this.messageCallbackContext = messageCallbackContext;
     }
 
     /**
@@ -164,6 +196,23 @@ public class IotHubTransportMessage extends Message
         **Codes_SRS_IOTHUBTRANSPORTMESSAGE_12_011: [**The function shall return the operation type either set by the setter or the default if unset so far.**]**
          */
         return this.operationType;
+    }
+
+    public boolean isMessageAckNeeded(IotHubClientProtocol protocol)
+    {
+        if (protocol == IotHubClientProtocol.MQTT || protocol == IotHubClientProtocol.MQTT_WS)
+        {
+            if (this.operationType == DeviceOperations.DEVICE_OPERATION_TWIN_SUBSCRIBE_DESIRED_PROPERTIES_REQUEST
+                    || this.operationType == DeviceOperations.DEVICE_OPERATION_METHOD_SUBSCRIBE_REQUEST
+                    || this.operationType == DeviceOperations.DEVICE_OPERATION_TWIN_UNSUBSCRIBE_DESIRED_PROPERTIES_REQUEST)
+            {
+                //This is a SUBSCRIBE action in MQTT which we currently treat synchronously, so there is no message ack
+                // unlike other send operations
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

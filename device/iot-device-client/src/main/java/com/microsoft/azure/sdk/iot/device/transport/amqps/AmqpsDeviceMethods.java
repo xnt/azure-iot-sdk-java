@@ -5,6 +5,7 @@ package com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.DeviceOperations;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.IotHubTransportMessage;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Binary;
@@ -16,7 +17,6 @@ import org.apache.qpid.proton.amqp.messaging.Section;
 import org.apache.qpid.proton.engine.Session;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -129,11 +129,10 @@ public final class AmqpsDeviceMethods extends AmqpsDeviceOperations
      *
      * @param linkName The receiver link's name to read from
      * @return the received message
-     * @throws IllegalArgumentException if linkName argument is empty
-     * @throws IOException if Proton throws
+     * @throws TransportException if Proton throws
      */
     @Override
-    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, IOException
+    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICEMETHODS_12_012: [The function shall call the super function.]
         AmqpsMessage amqpsMessage = super.getMessageFromReceiverLink(linkName);
@@ -156,7 +155,7 @@ public final class AmqpsDeviceMethods extends AmqpsDeviceOperations
      * @return the converted message
      */
     @Override
-    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig)
+    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws TransportException
     {
         if ((amqpsMessage.getAmqpsMessageType() == MessageType.DEVICE_METHODS) &&
             (this.deviceClientConfig.getDeviceId() == deviceClientConfig.getDeviceId()))

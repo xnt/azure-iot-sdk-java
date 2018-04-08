@@ -13,12 +13,13 @@ public class MqttConnection
 {
     MqttConnection(String serverURI, String clientId, String userName, String password, SSLContext iotHubSSLContext) throws IOException;
 
-    void setMqttCallback(MqttCallback mqttCallback) throws IllegalArgumentException;
+    void setMqttCallback(MqttCallback mqttCallback) throws TransportException;
     MqttAsyncClient getMqttAsyncClient();
     ConcurrentLinkedQueue<Pair<String, byte[]>> getAllReceivedMessages();
     Object getMqttLock();
     MqttConnectOptions getConnectionOptions();
     void setMqttAsyncClient(MqttAsyncClient mqttAsyncClient);
+    boolean sendMessageAcknowledgement(int messageId) throws TransportException;
 }
 ```
 
@@ -39,7 +40,7 @@ MqttConnection(String serverURI, String clientId, String userName, String passwo
 ### setMqttCallback
 
 ```java
-void setMqttCallback(MqttCallback mqttCallback) throws IllegalArgumentException;
+void setMqttCallback(MqttCallback mqttCallback) throws TransportException;
 ```
 
 **SRS_MQTTCONNECTION_25_005: [**This method shall set the callback for Mqtt.**]**
@@ -86,3 +87,12 @@ void setMqttCallback(MqttCallback mqttCallback) throws IllegalArgumentException;
 
 **SRS_MQTTCONNECTION_25_011: [**Setter for the MqttAsyncClient which can be null.**]**
 
+
+### sendMessageAcknowledgement
+```java
+boolean sendMessageAcknowledgement(int messageId) throws TransportException
+```
+
+**SRS_MQTTCONNECTION_25_012: [**This function shall invoke the saved mqttAsyncClient to send the message ack for the provided messageId and then return true.**]**
+
+**SRS_MQTTCONNECTION_25_013: [**If this function encounters an MqttException when sending the message ack over the mqtt async client, this function shall translate that exception and throw it.**]**

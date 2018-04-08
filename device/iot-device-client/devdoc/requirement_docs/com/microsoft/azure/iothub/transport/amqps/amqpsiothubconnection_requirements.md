@@ -36,9 +36,12 @@ public final class AmqpsIotHubConnection extends BaseHandler
 
     public void onTransportError(Event event);
 
-    public void addListener(ServerListener listener);
+    public void addListener(IotHubListener listener);
     protected AmqpsConvertToProtonReturnValue convertToProton(com.microsoft.azure.sdk.iot.device.Message message) throws IOException;
     protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws IOException;
+
+    static ConnectionStatusException getConnectionStatusExceptionFromAMQPExceptionCode(String exceptionCode);
+
 }
 ```
 
@@ -140,9 +143,9 @@ public synchronized void close()
 
 **SRS_AMQPSIOTHUBCONNECTION_15_014: [**The function shall stop the Proton reactor.**]**
 
-**SRS_AMQPSIOTHUBCONNECTION_12_004: [**The function shall throw IOException if the waitLock throws.**]**
+**SRS_AMQPSIOTHUBCONNECTION_12_004: [**The function shall throw TransportException if the waitLock throws.**]**
 
-**SRS_AMQPSIOTHUBCONNECTION_12_005: [**The function shall throw IOException if the executor shutdown is interrupted.**]**
+**SRS_AMQPSIOTHUBCONNECTION_12_005: [**The function shall throw TransportException if the executor shutdown is interrupted.**]**
 
 
 ### sendMessage
@@ -242,9 +245,17 @@ public void onDelivery(Event event)
 
 **SRS_AMQPSIOTHUBCONNECTION_15_039: [**The event handler shall note the remote delivery state and use it and the Delivery (Proton) hash code to inform the AmqpsIotHubConnection of the message receipt.**]**
 
-**SRS_AMQPSIOTHUBCONNECTION_15_050: [**All the listeners shall be notified that a message was received from the server.**]**
-
 **SRS_AMQPSIOTHUBCONNECTION_12_015: [**The function shall call AmqpsSessionManager.getMessageFromReceiverLink.**]**
+
+**SRS_AMQPSIOTHUBCONNECTION_34_089: [**If an amqp message can be received from the receiver link, and that amqp message contains a status code that is not 200 or 204, this function shall notify this object's listeners that that message was received and provide the status code's mapped exception.**]**
+
+**SRS_AMQPSIOTHUBCONNECTION_34_090: [**If an amqp message can be received from the receiver link, and that amqp message contains a status code that is 200 or 204, this function shall notify this object's listeners that that message was received with a null exception.**]**
+
+**SRS_AMQPSIOTHUBCONNECTION_34_091: [**If an amqp message can be received from the receiver link, and that amqp message contains no status code, this function shall notify this object's listeners that that message was received with a null exception.**]**
+
+**SRS_AMQPSIOTHUBCONNECTION_34_092: [**If an amqp message can be received from the receiver link, and that amqp message contains no application properties, this function shall notify this object's listeners that that message was received with a null exception.**]**
+
+**SRS_AMQPSIOTHUBCONNECTION_34_093: [**If an amqp message can be received from the receiver link, and that amqp message contains a status code, but that status code cannot be parsed to an integer, this function shall notify this object's listeners that that message was received with a null exception.**]**
 
 
 ## onLinkInit
@@ -287,6 +298,7 @@ public void onLinkRemoteClose(Event event)
 
 **SRS_AMQPSIOTHUBCONNECTION_15_042 [**The event handler shall attempt to reconnect to the IoTHub.**]**
 
+**SRS_AMQPSIOTHUBCONNECTION_34_061 [**If the provided event object's transport holds a remote error condition object, this function shall report the associated ConnectionStatusException to this object's listeners.**]**
 
 
 ## onTransportError
@@ -297,14 +309,14 @@ public void onTransportError(Event event)
 
 **SRS_AMQPSIOTHUBCONNECTION_15_048 [**The event handler shall attempt to reconnect to IoTHub.**]**
 
+**SRS_AMQPSIOTHUBCONNECTION_34_060 [**If the provided event object's transport holds an error condition object, this function shall report the associated ConnectionStatusException to this object's listeners.**]**
+
 
 ### addListener
 
 ```java
-public void addListener(ServerListener listener);
+public void addListener(IotHubListener listener);
 ```
-
-**SRS_AMQPSIOTHUBCONNECTION_12_053: [**The function shall do nothing if the listener parameter is null.**]**
 
 **SRS_AMQPSIOTHUBCONNECTION_12_054: [**The function shall add the given listener to the listener list.**]**
 

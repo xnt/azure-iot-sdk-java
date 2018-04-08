@@ -4,6 +4,7 @@ import com.microsoft.azure.sdk.iot.device.CustomLogger;
 
 public final class AmqpsDeviceAuthenticationCBSSendTask implements Runnable
 {
+    private final static String THREAD_NAME = "azure-iot-sdk-AmqpsDeviceAuthenticationCBSSendTask";
     private final CustomLogger logger = new CustomLogger(this.getClass());
 
     private AmqpsDeviceAuthenticationCBS amqpsDeviceAuthenticationCBS;
@@ -12,8 +13,9 @@ public final class AmqpsDeviceAuthenticationCBSSendTask implements Runnable
      * Task runner for CBS authentication.
      *
      * @param amqpsDeviceAuthenticationCBS the class contining the function to run.
+     * @throws IllegalArgumentException if amqpsDeviceAuthenticationCBS is null
      */
-    public AmqpsDeviceAuthenticationCBSSendTask(AmqpsDeviceAuthenticationCBS amqpsDeviceAuthenticationCBS)
+    public AmqpsDeviceAuthenticationCBSSendTask(AmqpsDeviceAuthenticationCBS amqpsDeviceAuthenticationCBS) throws IllegalArgumentException
     {
         // Codes_SRS_AMQPSDEVICEAUTHENTICATIONCBSSENDTASK_12_001: [The constructor shall throw IllegalArgumentException if the amqpsDeviceAuthenticationCBS parameter is null.]
         if (amqpsDeviceAuthenticationCBS == null)
@@ -32,6 +34,8 @@ public final class AmqpsDeviceAuthenticationCBSSendTask implements Runnable
     @Override
     public void run()
     {
+        Thread.currentThread().setName(THREAD_NAME);
+
         try
         {
             // Codes_SRS_AMQPSDEVICEAUTHENTICATIONCBSSENDTASK_12_003: [The function shall call the amqpsDeviceAuthenticationCBS.sendAuthenticationMessages.]

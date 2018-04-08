@@ -7,6 +7,8 @@ import com.microsoft.azure.sdk.iot.device.CustomLogger;
 import com.microsoft.azure.sdk.iot.device.DeviceClientConfig;
 import com.microsoft.azure.sdk.iot.device.Message;
 import com.microsoft.azure.sdk.iot.device.MessageType;
+import com.microsoft.azure.sdk.iot.device.exceptions.ProtocolException;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import com.microsoft.azure.sdk.iot.device.transport.TransportUtils;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Source;
@@ -16,7 +18,6 @@ import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.*;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -87,9 +88,9 @@ public class AmqpsDeviceOperations
      * Opens receiver and sender link
      * @param session The session where the links shall be created
      * @throws IllegalArgumentException if session argument is null
-     * @throws IOException if Proton throws
+     * @throws TransportException if Proton throws
      */
-    protected synchronized void openLinks(Session session) throws IOException, IllegalArgumentException
+    protected synchronized void openLinks(Session session) throws TransportException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -124,7 +125,7 @@ public class AmqpsDeviceOperations
             }
             catch (Exception e)
             {
-                throw new IOException("Proton exception: " + e.getMessage());
+                throw new TransportException(e);
             }
         }
 
@@ -152,7 +153,7 @@ public class AmqpsDeviceOperations
             }
             catch (Exception e)
             {
-                throw new IOException("Proton exception: " + e.getMessage());
+                throw new TransportException(e);
             }
         }
 
@@ -188,9 +189,9 @@ public class AmqpsDeviceOperations
      * Initializes the link's other endpoint according to its type
      * @param link The link which shall be initialize.
      * @throws IllegalArgumentException if link argument is null
-     * @throws IOException if Proton throws
+     * @throws TransportException if Proton throws
      */
-    protected synchronized void initLink(Link link) throws IOException, IllegalArgumentException
+    protected synchronized void initLink(Link link) throws TransportException, IllegalArgumentException
     {
         logger.LogDebug("Entered in method %s", logger.getMethodName());
 
@@ -219,7 +220,7 @@ public class AmqpsDeviceOperations
                 }
                 catch (Exception e)
                 {
-                    throw new IOException("Proton exception: " + e.getMessage());
+                    throw new TransportException(e);
                 }
             }
         }
@@ -241,7 +242,7 @@ public class AmqpsDeviceOperations
                 }
                 catch (Exception e)
                 {
-                    throw new IOException("Proton exception: " + e.getMessage());
+                    throw new TransportException(e);
                 }
             }
         }
@@ -300,9 +301,9 @@ public class AmqpsDeviceOperations
      * @param linkName The receiver link's name to read from
      * @return the received message
      * @throws IllegalArgumentException if linkName argument is empty
-     * @throws IOException if Proton throws
+     * @throws TransportException if Proton throws
      */
-    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, IOException
+    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, TransportException
     {
         // Codes_SRS_AMQPSDEVICEOPERATIONS_12_036: [The function shall do nothing and return null if the linkName is empty.]
         if (linkName.isEmpty())
@@ -336,27 +337,17 @@ public class AmqpsDeviceOperations
 
                         return amqpsMessage;
                     }
-                    else
-                    {
-                        // Codes_SRS_AMQPSDEVICEOPERATIONS_12_043: [The function shall return null if the linkName does not match with the receiverLink tag.]
-                        // Codes_SRS_AMQPSDEVICEOPERATIONS_12_033: [The function shall try to read the full message from the delivery object and if it fails return null.]
-                        return null;
-                    }
-                }
-                else
-                {
-                    return null;
                 }
             }
             catch (Exception e)
             {
-                throw new IOException("Proton exeption: " + e.getMessage());
+                throw new TransportException(e);
             }
         }
-        else
-        {
-            return null;
-        }
+
+        // Codes_SRS_AMQPSDEVICEOPERATIONS_12_043: [The function shall return null if the linkName does not match with the receiverLink tag.]
+        // Codes_SRS_AMQPSDEVICEOPERATIONS_12_033: [The function shall try to read the full message from the delivery object and if it fails return null.]
+        return null;
     }
 
     /**
@@ -387,9 +378,9 @@ public class AmqpsDeviceOperations
      * @param amqpsMessage The Proton message to convert
      * @param deviceClientConfig The device client configuration
      * @return the converted message
-     * @throws IOException if conversion fails.
+     * @throws TransportException if conversion fails.
      */
-    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws IOException
+    protected AmqpsConvertFromProtonReturnValue convertFromProton(AmqpsMessage amqpsMessage, DeviceClientConfig deviceClientConfig) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICEOPERATIONS_12_039: [The prototype function shall return null.]
         return null;
@@ -400,9 +391,9 @@ public class AmqpsDeviceOperations
      *
      * @param message The IoTHubMessage to convert
      * @return the converted message
-     * @throws IOException if conversion fails.
+     * @throws TransportException if conversion fails.
      */
-    protected AmqpsConvertToProtonReturnValue convertToProton(Message message) throws IOException
+    protected AmqpsConvertToProtonReturnValue convertToProton(Message message) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICEOPERATIONS_12_040: [The prototype function shall return null.]
         return null;
@@ -413,9 +404,9 @@ public class AmqpsDeviceOperations
      *
      * @param protonMsg The Proton message to convert
      * @return the converted message
-     * @throws IOException if conversion fails.
+     * @throws TransportException if conversion fails.
      */
-    protected Message protonMessageToIoTHubMessage(MessageImpl protonMsg) throws IOException
+    protected Message protonMessageToIoTHubMessage(MessageImpl protonMsg) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICEOPERATIONS_12_041: [The prototype function shall return null.]
         return null;
@@ -425,9 +416,9 @@ public class AmqpsDeviceOperations
      * Prototype (empty) function for protected converter function
      * @param message The IoTHubMessage to convert
      * @return the converted message
-     * @throws IOException if conversion fails.
+     * @throws TransportException if conversion fails.
      */
-    protected MessageImpl iotHubMessageToProtonMessage(com.microsoft.azure.sdk.iot.device.Message message) throws IOException
+    protected MessageImpl iotHubMessageToProtonMessage(com.microsoft.azure.sdk.iot.device.Message message) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICEOPERATIONS_12_042: [The prototype function shall return null.]
         return null;

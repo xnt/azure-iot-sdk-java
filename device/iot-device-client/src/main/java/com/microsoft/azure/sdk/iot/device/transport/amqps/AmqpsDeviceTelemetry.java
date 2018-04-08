@@ -4,17 +4,15 @@
 package com.microsoft.azure.sdk.iot.device.transport.amqps;
 
 import com.microsoft.azure.sdk.iot.device.*;
+import com.microsoft.azure.sdk.iot.device.exceptions.TransportException;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Binary;
 import org.apache.qpid.proton.amqp.messaging.ApplicationProperties;
 import org.apache.qpid.proton.amqp.messaging.Data;
 import org.apache.qpid.proton.amqp.messaging.Properties;
 import org.apache.qpid.proton.amqp.messaging.Section;
-import org.apache.qpid.proton.engine.Link;
-import org.apache.qpid.proton.engine.Session;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,13 +29,16 @@ public final class AmqpsDeviceTelemetry extends AmqpsDeviceOperations
 
     /**
      * This constructor creates an instance of AmqpsDeviceTelemetry class and initializes member variables
+     *
+     * @param deviceClientConfig The configuration settings for an IoT Hub client
+     * @throws IllegalArgumentException if the deviceClientConfig argument is null
      */
     AmqpsDeviceTelemetry(DeviceClientConfig deviceClientConfig) throws IllegalArgumentException
     {
         // Codes_SRS_AMQPSDEVICETELEMETRY_12_001: [The constructor shall throw IllegalArgumentException if the deviceClientConfig argument is null.]
         if (deviceClientConfig == null)
         {
-            throw new IllegalArgumentException("The deviceId cannot be null or empty.");
+            new IllegalArgumentException("The deviceId cannot be null or empty.");
         }
 
         this.deviceClientConfig = deviceClientConfig;
@@ -115,10 +116,10 @@ public final class AmqpsDeviceTelemetry extends AmqpsDeviceOperations
      * @param linkName The receiver link's name to read from
      * @return the received message
      * @throws IllegalArgumentException if linkName argument is empty
-     * @throws IOException if Proton throws
+     * @throws TransportException if Proton throws
      */
     @Override
-    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws IllegalArgumentException, IOException
+    protected AmqpsMessage getMessageFromReceiverLink(String linkName) throws TransportException
     {
         // Codes_SRS_AMQPSDEVICETELEMETRY_12_020: [The function shall call the super function.]
         AmqpsMessage amqpsMessage = super.getMessageFromReceiverLink(linkName);
@@ -302,7 +303,6 @@ public final class AmqpsDeviceTelemetry extends AmqpsDeviceOperations
                 {
                     userProperties.put(messageProperty.getName(), messageProperty.getValue());
                 }
-
             }
 
             ApplicationProperties applicationProperties = new ApplicationProperties(userProperties);
