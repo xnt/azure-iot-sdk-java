@@ -35,6 +35,9 @@ public class AmqpsSessionManagerTest
     AmqpsSessionDeviceOperation mockAmqpsSessionDeviceOperation1;
 
     @Mocked
+    AmqpsDeviceOperations mockedAmqpsDeviceOperations;
+
+    @Mocked
     ScheduledExecutorService mockScheduledExecutorService;
 
     @Mocked
@@ -1127,6 +1130,110 @@ public class AmqpsSessionManagerTest
                 Deencapsulation.invoke(mockAmqpsSessionDeviceOperation, "convertFromProton", mockAmqpsMessage, mockDeviceClientConfig);
                 times = 1;
                 Deencapsulation.invoke(mockAmqpsSessionDeviceOperation1, "convertFromProton", mockAmqpsMessage, mockDeviceClientConfig);
+                times = 1;
+            }
+        };
+    }
+
+    // Tests_SRS_AMQPSESSIONMANAGER_34_045: [If this object's authentication is not open, this function shall return false.]
+    @Test
+    public void areAllLinksOpenReturnsFalseIfAuthClosed() throws TransportException
+    {
+        //arrange
+        final AmqpsSessionManager amqpsSessionManager = new AmqpsSessionManager(mockDeviceClientConfig);
+
+        new Expectations(AmqpsSessionManager.class)
+        {
+            {
+                Deencapsulation.invoke(amqpsSessionManager, "isAuthenticationOpened");
+                result = false;
+            }
+        };
+
+        //act
+        boolean result = Deencapsulation.invoke(amqpsSessionManager, "areAllLinksOpen");
+
+        //assert
+        assertFalse(result);
+    }
+
+    // Tests_SRS_AMQPSESSIONMANAGER_34_044: [If this object's authentication is open, this function shall return if all saved sessions' links are open.]
+    @Test
+    public void areAllLinksOpenChecksEachSessionForClosedLinks() throws TransportException
+    {
+        //arrange
+        final AmqpsSessionManager amqpsSessionManager = new AmqpsSessionManager(mockDeviceClientConfig);
+        ArrayList<AmqpsSessionDeviceOperation> sessionList = new ArrayList<>();
+        sessionList.add(mockAmqpsSessionDeviceOperation);
+        sessionList.add(mockAmqpsSessionDeviceOperation1);
+        Deencapsulation.setField(amqpsSessionManager, "amqpsDeviceSessionList", sessionList);
+        new Expectations(AmqpsSessionManager.class)
+        {
+            {
+                Deencapsulation.invoke(amqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionDeviceOperation.operationLinksOpened();
+                result = true;
+
+                mockAmqpsSessionDeviceOperation1.operationLinksOpened();
+                result = false;
+            }
+        };
+
+        //act
+        boolean result = Deencapsulation.invoke(amqpsSessionManager, "areAllLinksOpen");
+
+        //assert
+        assertFalse(result);
+        new Verifications()
+        {
+            {
+                mockAmqpsSessionDeviceOperation.operationLinksOpened();
+                times = 1;
+
+                mockAmqpsSessionDeviceOperation1.operationLinksOpened();
+                times = 1;
+            }
+        };
+    }
+
+    // Tests_SRS_AMQPSESSIONMANAGER_34_044: [If this object's authentication is open, this function shall return if all saved sessions' links are open.]
+    @Test
+    public void areAllLinksOpenChecksEachSessionForOpenLinks() throws TransportException
+    {
+        //arrange
+        final AmqpsSessionManager amqpsSessionManager = new AmqpsSessionManager(mockDeviceClientConfig);
+        ArrayList<AmqpsSessionDeviceOperation> sessionList = new ArrayList<>();
+        sessionList.add(mockAmqpsSessionDeviceOperation);
+        sessionList.add(mockAmqpsSessionDeviceOperation1);
+        Deencapsulation.setField(amqpsSessionManager, "amqpsDeviceSessionList", sessionList);
+        new Expectations(AmqpsSessionManager.class)
+        {
+            {
+                Deencapsulation.invoke(amqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionDeviceOperation.operationLinksOpened();
+                result = true;
+
+                mockAmqpsSessionDeviceOperation1.operationLinksOpened();
+                result = true;
+            }
+        };
+
+        //act
+        boolean result = Deencapsulation.invoke(amqpsSessionManager, "areAllLinksOpen");
+
+        //assert
+        assertTrue(result);
+        new Verifications()
+        {
+            {
+                mockAmqpsSessionDeviceOperation.operationLinksOpened();
+                times = 1;
+
+                mockAmqpsSessionDeviceOperation1.operationLinksOpened();
                 times = 1;
             }
         };

@@ -22,6 +22,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 abstract public class Mqtt implements MqttCallback
 {
+    private static final int CONNECTION_TIMEOUT = 60 * 1000;
+    private static final int DISCONNECTION_TIMEOUT = 60 * 1000;
+
     private MqttConnection mqttConnection;
     private MqttMessageListener messageListener;
     ConcurrentLinkedQueue<Pair<String, byte[]>> allReceivedMessages;
@@ -91,7 +94,7 @@ abstract public class Mqtt implements MqttCallback
                 {
                     //Codes_SRS_Mqtt_25_005: [The function shall establish an MQTT connection with an IoT Hub using the provided host name, user name, device ID, and sas token.]
                     IMqttToken connectToken = this.mqttConnection.getMqttAsyncClient().connect(Mqtt.this.mqttConnection.getConnectionOptions());
-                    connectToken.waitForCompletion();
+                    connectToken.waitForCompletion(CONNECTION_TIMEOUT);
 
                     //Codes_SRS_Mqtt_34_020: [If the MQTT connection is established successfully, this function shall notify its listener that connection was established.]
                     if (this.listener != null)
@@ -115,22 +118,21 @@ abstract public class Mqtt implements MqttCallback
      */
     protected void disconnect() throws TransportException
     {
-        //Codes_SRS_Mqtt_25_010: [If the MQTT connection is closed, the function shall do nothing.]
         try
         {
-            if (this.mqttConnection.getMqttAsyncClient() != null)
+            if (this.mqttConnection.isConnected())
             {
-                    if (this.mqttConnection.getMqttAsyncClient().isConnected())
-                    {
-                        //Codes_SRS_Mqtt_34_055: [If an MQTT connection is connected, the function shall disconnect that connection.]
-                        IMqttToken disconnectToken = this.mqttConnection.getMqttAsyncClient().disconnect();
-                        disconnectToken.waitForCompletion();
-                    }
+                //Codes_SRS_Mqtt_34_055: [If an MQTT connection is connected, the function shall disconnect that connection.]
+                IMqttToken disconnectToken = this.mqttConnection.disconnect();
 
-                    //Codes_SRS_Mqtt_25_009: [The function shall close the MQTT client.]
-                    this.mqttConnection.getMqttAsyncClient().close();
+                if (disconnectToken != null)
+                {
+                    disconnectToken.waitForCompletion(DISCONNECTION_TIMEOUT);
                 }
+            }
 
+            //Codes_SRS_Mqtt_25_009: [The function shall close the MQTT client.]
+            this.mqttConnection.close();
             this.mqttConnection.setMqttAsyncClient(null);
         }
         catch (MqttException e)

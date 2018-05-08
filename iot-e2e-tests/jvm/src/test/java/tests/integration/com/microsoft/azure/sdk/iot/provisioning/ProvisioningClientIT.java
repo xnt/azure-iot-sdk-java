@@ -7,10 +7,13 @@
 
 package tests.integration.com.microsoft.azure.sdk.iot.provisioning;
 
-import com.microsoft.azure.sdk.iot.common.iothubservices.SendMessagesCommon;
+import com.microsoft.azure.sdk.iot.common.MessageAndResult;
+import com.microsoft.azure.sdk.iot.common.iothubservices.IotHubServicesCommon;
 import com.microsoft.azure.sdk.iot.deps.util.Base64;
 import com.microsoft.azure.sdk.iot.device.DeviceClient;
 import com.microsoft.azure.sdk.iot.device.IotHubClientProtocol;
+import com.microsoft.azure.sdk.iot.device.IotHubStatusCode;
+import com.microsoft.azure.sdk.iot.device.Message;
 import com.microsoft.azure.sdk.iot.provisioning.device.*;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.exceptions.ProvisioningDeviceClientException;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProvider;
@@ -25,20 +28,20 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import tests.integration.com.microsoft.azure.sdk.iot.helpers.Tools;
 import tests.integration.com.microsoft.azure.sdk.iot.helpers.X509Cert;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.UUID;
+import java.lang.reflect.Array;
+import java.util.*;
 
 import static com.microsoft.azure.sdk.iot.provisioning.device.ProvisioningDeviceClientStatus.PROVISIONING_DEVICE_STATUS_ASSIGNED;
 import static com.microsoft.azure.sdk.iot.provisioning.device.ProvisioningDeviceClientTransportProtocol.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
+@RunWith(Parameterized.class)
 public class ProvisioningClientIT
 {
     private final IotHubClientProtocol [] iotHubClientProtocols = {IotHubClientProtocol.MQTT, IotHubClientProtocol.MQTT_WS, IotHubClientProtocol.AMQPS, IotHubClientProtocol.AMQPS_WS, IotHubClientProtocol.HTTPS};
@@ -59,9 +62,11 @@ public class ProvisioningClientIT
     private static final String TPM_SIMULATOR_IP_ADDRESS_ENV_NAME = "IOT_DPS_TPM_SIMULATOR_IP_ADDRESS"; // ip address of TPM simulator
     private static String tpmSimulatorIpAddress = "";
 
-    private static final long MAX_TIME_TO_WAIT_FOR_REGISTRATION = 10000; // milli secs of time to wait
+    private static final long MAX_TIME_TO_WAIT_FOR_REGISTRATION = 1 * 60 * 1000; //
 
     private static final Integer IOTHUB_NUM_OF_MESSAGES_TO_SEND = 3; // milli secs of time to wait
+    private static final List<MessageAndResult> messagesToSendAndResultsExpected = new ArrayList<>();
+
     // How much to wait until a message makes it to the server, in milliseconds
     private static final Integer IOTHUB_MAX_SEND_TIMEOUT = 60000; // milli secs of time to wait
 
@@ -78,6 +83,39 @@ public class ProvisioningClientIT
     private RegistryManager registryManager = null;
 
     private static final int INTERTEST_GUARDIAN_DELAY_MILLISECONDS = 2000;
+    private static final int OVERALL_TEST_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+
+    @Parameterized.Parameters(name = "{0}")
+    public static Collection inputs()
+    {
+        return Arrays.asList(
+                new Object[][]
+                {
+                    {HTTPS},
+                    {MQTT},
+                    {MQTT_WS},
+                    {AMQPS},
+                    {AMQPS_WS},
+                }
+        );
+    }
+
+    public ProvisioningClientIT(ProvisioningDeviceClientTransportProtocol protocol)
+    {
+        this.testInstance = new ProvisioningClientITRunner(protocol);
+    }
+
+    private ProvisioningClientITRunner testInstance;
+
+    private class ProvisioningClientITRunner
+    {
+        private ProvisioningDeviceClientTransportProtocol protocol;
+
+        public ProvisioningClientITRunner(ProvisioningDeviceClientTransportProtocol protocol)
+        {
+            this.protocol = protocol;
+        }
+    }
 
     @Before
     public void setUp() throws Exception
@@ -91,10 +129,15 @@ public class ProvisioningClientIT
         provisioningServiceClient =
                 ProvisioningServiceClient.createFromConnectionString(provisioningServiceConnectionString);
         registryManager = RegistryManager.createFromConnectionString(iotHubConnectionString);
+
+        for (int i = 0; i < IOTHUB_NUM_OF_MESSAGES_TO_SEND; i++)
+        {
+            messagesToSendAndResultsExpected.add(new MessageAndResult(new Message("Java client e2e test message"), IotHubStatusCode.OK_EMPTY));
+        }
     }
 
     @After
-    public void tearDown() throws Exception
+    public void tearDown()
     {
         try
         {
@@ -137,6 +180,7 @@ public class ProvisioningClientIT
 
     private void waitForRegistrationCallback(ProvisioningStatus provisioningStatus) throws InterruptedException
     {
+        long startTime = System.currentTimeMillis();
         while (provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getProvisioningDeviceClientStatus() != PROVISIONING_DEVICE_STATUS_ASSIGNED)
         {
             if (provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getProvisioningDeviceClientStatus() == ProvisioningDeviceClientStatus.PROVISIONING_DEVICE_STATUS_ERROR ||
@@ -148,7 +192,13 @@ public class ProvisioningClientIT
                 throw new InterruptedException(provisioningStatus.exception.getMessage());
             }
             System.out.println("Waiting for Provisioning Service to register");
-            Thread.sleep(MAX_TIME_TO_WAIT_FOR_REGISTRATION);
+
+            Thread.sleep(2000);
+
+            if (System.currentTimeMillis() - startTime > MAX_TIME_TO_WAIT_FOR_REGISTRATION)
+            {
+                fail("Timed out waiting for registration to succeed");
+            }
         }
 
         assertEquals(PROVISIONING_DEVICE_STATUS_ASSIGNED, provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getProvisioningDeviceClientStatus());
@@ -274,142 +324,137 @@ public class ProvisioningClientIT
         registryManager.removeDevice(deviceId);
     }
 
-    @Test
+    @Test (timeout = OVERALL_TEST_TIMEOUT)
     public void individualEnrollmentTPMSimulator() throws Exception
     {
-        for (ProvisioningDeviceClientTransportProtocol protocol : provisioningDeviceClientTransportProtocols)
+        if (testInstance.protocol == MQTT || testInstance.protocol == MQTT_WS)
         {
-            if (protocol == MQTT || protocol == MQTT_WS)
+            // MQTT and MQTT_WS are not supported for TPM from service
+            return;
+        }
+
+        String registrationId = REGISTRATION_ID_TPM_PREFIX + UUID.randomUUID().toString();
+        SecurityProvider securityProviderTPMEmulator = new SecurityProviderTPMEmulator(registrationId, tpmSimulatorIpAddress);
+
+        String deviceID = DEVICE_ID_TPM_PREFIX + UUID.randomUUID().toString();
+
+        // setup service client with a unique registration id
+        assertEquals(registrationId, securityProviderTPMEmulator.getRegistrationId());
+
+        //
+        TwinCollection tags = new TwinCollection();
+        final String TEST_KEY_TAG = "testTag";
+        final String TEST_VALUE_TAG = "testValue";
+        tags.put(TEST_KEY_TAG, TEST_VALUE_TAG);
+
+        final String TEST_KEY_DP = "testDP";
+        final String TEST_VALUE_DP = "testDPValue";
+        TwinCollection desiredProperties = new TwinCollection();
+        desiredProperties.put(TEST_KEY_DP, TEST_VALUE_DP);
+
+        TwinState twinState = new TwinState(tags, desiredProperties);
+        IndividualEnrollment individualEnrollmentResult = createIndividualEnrollmentTPM(new String(Base64.encodeBase64Local(((SecurityProviderTPMEmulator) securityProviderTPMEmulator).getEndorsementKey())),
+                                      registrationId, deviceID, twinState);
+
+        assertNotNull(individualEnrollmentResult.getInitialTwin());
+        assertEquals(TEST_VALUE_TAG, individualEnrollmentResult.getInitialTwin().getTags().get(TEST_KEY_TAG));
+        assertEquals(TEST_VALUE_DP, individualEnrollmentResult.getInitialTwin().getDesiredProperty().get(TEST_KEY_DP));
+
+        // Register device
+        ProvisioningStatus provisioningStatus = registerDevice(testInstance.protocol, securityProviderTPMEmulator);
+        waitForRegistrationCallback(provisioningStatus);
+        provisioningStatus.provisioningDeviceClient.closeNow();
+
+        assertEquals(deviceID, provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId());
+
+        // Tests will not pass if the linked iothub to provisioning service and iothub setup to send/receive messages isn't same.
+        assertEquals("Iothub Linked to provisioning service and IotHub in connection String are not same", getHostName(iotHubConnectionString),
+                     provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri());
+
+        // send messages over all protocols
+        for (IotHubClientProtocol iotHubClientProtocol: iotHubClientProtocols)
+        {
+            DeviceClient deviceClient = DeviceClient.createFromSecurityProvider(provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri(),
+                                                                                provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId(),
+                                                                                securityProviderTPMEmulator, iotHubClientProtocol);
+            IotHubServicesCommon.sendMessages(deviceClient, iotHubClientProtocol, messagesToSendAndResultsExpected, IOTHUB_RETRY_MILLISECONDS, IOTHUB_MAX_SEND_TIMEOUT, 200, null);
+
+            System.out.println("Send Messages over " + iotHubClientProtocol + " for TPM registration over " + testInstance.protocol + " succeeded");
+        }
+
+        // delete enrollment
+        deleteEnrollment(registrationId);
+        deleteDeviceFromIotHub(deviceID);
+        ((SecurityProviderTPMEmulator) securityProviderTPMEmulator).shutDown();
+        System.out.println("Running TPM registration over " + testInstance.protocol + " succeeded");
+    }
+
+    @Test (timeout = OVERALL_TEST_TIMEOUT)
+    public void individualEnrollmentX509() throws Exception
+    {
+        String registrationId = REGISTRATION_ID_X509_PREFIX + UUID.randomUUID().toString();
+        X509Cert certs = new X509Cert(0, false, registrationId, null);
+        final String leafPublicPem =  certs.getPublicCertLeafPem();
+        String leafPrivateKey = certs.getPrivateKeyLeafPem();
+        Collection<String> signerCertificates = new LinkedList<>();
+        SecurityProvider securityProviderX509 = new SecurityProviderX509Cert(leafPublicPem, leafPrivateKey, signerCertificates);
+
+        // Create a device with Zero Root, Zero Intermediate and 1 leaf
+        String deviceID = String.format(DEVICE_ID_X509_PREFIX, "R0-I0-L1") + UUID.randomUUID().toString();
+
+        // setup service client with a unique registration id
+        assertEquals(registrationId, securityProviderX509.getRegistrationId());
+
+        //
+        TwinCollection tags = new TwinCollection();
+        final String TEST_KEY_TAG = "testTag";
+        final String TEST_VALUE_TAG = "testValue";
+        tags.put(TEST_KEY_TAG, TEST_VALUE_TAG);
+
+        final String TEST_KEY_DP = "testDP";
+        final String TEST_VALUE_DP = "testDPValue";
+        TwinCollection desiredProperties = new TwinCollection();
+        desiredProperties.put(TEST_KEY_DP, TEST_VALUE_DP);
+
+        TwinState twinState = new TwinState(tags, desiredProperties);
+        IndividualEnrollment individualEnrollmentResult = createIndividualEnrollmentX509(leafPublicPem, registrationId, deviceID, twinState);
+
+        assertNotNull(individualEnrollmentResult.getInitialTwin());
+        assertEquals(TEST_VALUE_TAG, individualEnrollmentResult.getInitialTwin().getTags().get(TEST_KEY_TAG));
+        assertEquals(TEST_VALUE_DP, individualEnrollmentResult.getInitialTwin().getDesiredProperty().get(TEST_KEY_DP));
+
+        // Register device
+        ProvisioningStatus provisioningStatus = registerDevice(testInstance.protocol, securityProviderX509);
+        waitForRegistrationCallback(provisioningStatus);
+        provisioningStatus.provisioningDeviceClient.closeNow();
+
+        assertEquals(deviceID, provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId());
+        // Tests will not pass if the linked iothub to provisioning service and iothub setup to send/receive messages isn't same.
+        assertEquals("Iothub Linked to provisioning service and IotHub in connection String are not same", getHostName(iotHubConnectionString),
+                     provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri());
+
+        // send messages over all protocols
+        for (IotHubClientProtocol iotHubClientProtocol: iotHubClientProtocols)
+        {
+            if (iotHubClientProtocol == IotHubClientProtocol.MQTT_WS || iotHubClientProtocol == IotHubClientProtocol.AMQPS_WS)
             {
-                // MQTT and MQTT_WS are not supported for TPM from service
+                // MQTT_WS/AMQP_WS does not support X509 because of a bug on service
                 continue;
             }
 
-            String registrationId = REGISTRATION_ID_TPM_PREFIX + UUID.randomUUID().toString();
-            SecurityProvider securityProviderTPMEmulator = new SecurityProviderTPMEmulator(registrationId, tpmSimulatorIpAddress);
+            DeviceClient deviceClient = DeviceClient.createFromSecurityProvider(provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri(),
+                                                                                provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId(),
+                                                                                securityProviderX509, iotHubClientProtocol);
+            IotHubServicesCommon.sendMessages(deviceClient, iotHubClientProtocol, messagesToSendAndResultsExpected, IOTHUB_RETRY_MILLISECONDS, IOTHUB_MAX_SEND_TIMEOUT, 200, null);
 
-            String deviceID = DEVICE_ID_TPM_PREFIX + UUID.randomUUID().toString();
-
-            // setup service client with a unique registration id
-            assertEquals(registrationId, securityProviderTPMEmulator.getRegistrationId());
-
-            //
-            TwinCollection tags = new TwinCollection();
-            final String TEST_KEY_TAG = "testTag";
-            final String TEST_VALUE_TAG = "testValue";
-            tags.put(TEST_KEY_TAG, TEST_VALUE_TAG);
-
-            final String TEST_KEY_DP = "testDP";
-            final String TEST_VALUE_DP = "testDPValue";
-            TwinCollection desiredProperties = new TwinCollection();
-            desiredProperties.put(TEST_KEY_DP, TEST_VALUE_DP);
-
-            TwinState twinState = new TwinState(tags, desiredProperties);
-            IndividualEnrollment individualEnrollmentResult = createIndividualEnrollmentTPM(new String(Base64.encodeBase64Local(((SecurityProviderTPMEmulator) securityProviderTPMEmulator).getEndorsementKey())),
-                                          registrationId, deviceID, twinState);
-
-            assertNotNull(individualEnrollmentResult.getInitialTwin());
-            assertEquals(TEST_VALUE_TAG, individualEnrollmentResult.getInitialTwin().getTags().get(TEST_KEY_TAG));
-            assertEquals(TEST_VALUE_DP, individualEnrollmentResult.getInitialTwin().getDesiredProperty().get(TEST_KEY_DP));
-
-            // Register device
-            ProvisioningStatus provisioningStatus = registerDevice(protocol, securityProviderTPMEmulator);
-            waitForRegistrationCallback(provisioningStatus);
-            provisioningStatus.provisioningDeviceClient.closeNow();
-
-            assertEquals(deviceID, provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId());
-
-            // Tests will not pass if the linked iothub to provisioning service and iothub setup to send/receive messages isn't same.
-            assertEquals("Iothub Linked to provisioning service and IotHub in connection String are not same", getHostName(iotHubConnectionString),
-                         provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri());
-
-            // send messages over all protocols
-            for (IotHubClientProtocol iotHubClientProtocol: iotHubClientProtocols)
-            {
-                DeviceClient deviceClient = DeviceClient.createFromSecurityProvider(provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri(),
-                                                                                    provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId(),
-                                                                                    securityProviderTPMEmulator, iotHubClientProtocol);
-                SendMessagesCommon.sendMessages(deviceClient, iotHubClientProtocol, IOTHUB_NUM_OF_MESSAGES_TO_SEND, IOTHUB_RETRY_MILLISECONDS, IOTHUB_MAX_SEND_TIMEOUT);
-
-                System.out.println("Send Messages over " + iotHubClientProtocol + " for TPM registration over " + protocol + " succeeded");
-            }
-
-            // delete enrollment
-            deleteEnrollment(registrationId);
-            deleteDeviceFromIotHub(deviceID);
-            ((SecurityProviderTPMEmulator) securityProviderTPMEmulator).shutDown();
-            System.out.println("Running TPM registration over " + protocol + " succeeded");
+            System.out.println("Send Messages over " + iotHubClientProtocol + " for X509 registration over " + testInstance.protocol + " succeeded");
         }
-    }
 
-    @Test
-    public void individualEnrollmentX509() throws Exception
-    {
-        for (ProvisioningDeviceClientTransportProtocol protocol : provisioningDeviceClientTransportProtocols)
-        {
-            String registrationId = REGISTRATION_ID_X509_PREFIX + UUID.randomUUID().toString();
-            X509Cert certs = new X509Cert(0, false, registrationId, null);
-            final String leafPublicPem =  certs.getPublicCertLeafPem();
-            String leafPrivateKey = certs.getPrivateKeyLeafPem();
-            Collection<String> signerCertificates = new LinkedList<>();
-            SecurityProvider securityProviderX509 = new SecurityProviderX509Cert(leafPublicPem, leafPrivateKey, signerCertificates);
+        // delete enrollment
+        deleteEnrollment(registrationId);
+        deleteDeviceFromIotHub(deviceID);
+        System.out.println("Running X509 registration over " + testInstance.protocol + " succeeded");
 
-            // Create a device with Zero Root, Zero Intermediate and 1 leaf
-            String deviceID = String.format(DEVICE_ID_X509_PREFIX, "R0-I0-L1") + UUID.randomUUID().toString();
-
-            // setup service client with a unique registration id
-            assertEquals(registrationId, securityProviderX509.getRegistrationId());
-
-            //
-            TwinCollection tags = new TwinCollection();
-            final String TEST_KEY_TAG = "testTag";
-            final String TEST_VALUE_TAG = "testValue";
-            tags.put(TEST_KEY_TAG, TEST_VALUE_TAG);
-
-            final String TEST_KEY_DP = "testDP";
-            final String TEST_VALUE_DP = "testDPValue";
-            TwinCollection desiredProperties = new TwinCollection();
-            desiredProperties.put(TEST_KEY_DP, TEST_VALUE_DP);
-
-            TwinState twinState = new TwinState(tags, desiredProperties);
-            IndividualEnrollment individualEnrollmentResult = createIndividualEnrollmentX509(leafPublicPem, registrationId, deviceID, twinState);
-
-            assertNotNull(individualEnrollmentResult.getInitialTwin());
-            assertEquals(TEST_VALUE_TAG, individualEnrollmentResult.getInitialTwin().getTags().get(TEST_KEY_TAG));
-            assertEquals(TEST_VALUE_DP, individualEnrollmentResult.getInitialTwin().getDesiredProperty().get(TEST_KEY_DP));
-
-            // Register device
-            ProvisioningStatus provisioningStatus = registerDevice(protocol, securityProviderX509);
-            waitForRegistrationCallback(provisioningStatus);
-            provisioningStatus.provisioningDeviceClient.closeNow();
-
-            assertEquals(deviceID, provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId());
-            // Tests will not pass if the linked iothub to provisioning service and iothub setup to send/receive messages isn't same.
-            assertEquals("Iothub Linked to provisioning service and IotHub in connection String are not same", getHostName(iotHubConnectionString),
-                         provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri());
-
-            // send messages over all protocols
-            for (IotHubClientProtocol iotHubClientProtocol: iotHubClientProtocols)
-            {
-                if (iotHubClientProtocol == IotHubClientProtocol.MQTT_WS || iotHubClientProtocol == IotHubClientProtocol.AMQPS_WS)
-                {
-                    // MQTT_WS/AMQP_WS does not support X509 because of a bug on service
-                    continue;
-                }
-
-                DeviceClient deviceClient = DeviceClient.createFromSecurityProvider(provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getIothubUri(),
-                                                                                    provisioningStatus.provisioningDeviceClientRegistrationInfoClient.getDeviceId(),
-                                                                                    securityProviderX509, iotHubClientProtocol);
-                SendMessagesCommon.sendMessages(deviceClient, iotHubClientProtocol, IOTHUB_NUM_OF_MESSAGES_TO_SEND, IOTHUB_RETRY_MILLISECONDS, IOTHUB_MAX_SEND_TIMEOUT);
-
-                System.out.println("Send Messages over " + iotHubClientProtocol + " for X509 registration over " + protocol + " succeeded");
-            }
-
-            // delete enrollment
-            deleteEnrollment(registrationId);
-            deleteDeviceFromIotHub(deviceID);
-            System.out.println("Running X509 registration over " + protocol + " succeeded");
-        }
     }
 
     // Following test are defined by Provisioning Spec (currently not implemented)

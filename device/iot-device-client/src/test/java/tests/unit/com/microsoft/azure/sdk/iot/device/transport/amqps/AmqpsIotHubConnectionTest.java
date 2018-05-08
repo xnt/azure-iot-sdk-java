@@ -17,6 +17,7 @@ import com.microsoft.azure.sdk.iot.device.transport.IotHubConnectionStatus;
 import com.microsoft.azure.sdk.iot.device.transport.IotHubListener;
 import com.microsoft.azure.sdk.iot.device.transport.IotHubTransportMessage;
 import com.microsoft.azure.sdk.iot.device.transport.amqps.*;
+import com.microsoft.azure.sdk.iot.device.transport.amqps.exceptions.AmqpConnectionForcedException;
 import com.microsoft.azure.sdk.iot.device.transport.amqps.exceptions.AmqpLinkRedirectException;
 import com.microsoft.azure.sdk.iot.device.transport.amqps.exceptions.AmqpSessionWindowViolationException;
 import mockit.*;
@@ -600,6 +601,9 @@ public class AmqpsIotHubConnectionTest {
 
                 Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
                 result = true;
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "areAllLinksOpen");
+                result = true;
             }
         };
 
@@ -613,6 +617,42 @@ public class AmqpsIotHubConnectionTest {
             //exception will be thrown, but we aren't testing for what it is nor do we care that it threw
         }
     }
+
+    // Codes_SRS_AMQPSIOTHUBCONNECTION_34_062: [If, after attempting to open the connection, this
+    // object has a saved exception, this function shall throw that saved exception.]
+    @Test (expected = AmqpConnectionForcedException.class)
+    public void openThrowsSavedExceptionsIfAnyExceptionsSavedDuringOpen() throws TransportException, InterruptedException
+    {
+        // arrange
+        baseExpectations();
+
+        final AmqpsIotHubConnection connection = new AmqpsIotHubConnection(mockConfig);
+        Deencapsulation.setField(connection, "savedException", new AmqpConnectionForcedException());
+        connection.setListener(mockedIotHubListener);
+        Deencapsulation.setField(connection, "openLatch", mockOpenLatch);
+        Deencapsulation.setField(connection, "amqpsSessionManager", mockAmqpsSessionManager);
+
+        new StrictExpectations()
+        {
+            {
+                mockOpenLatch.await(anyLong, TimeUnit.MILLISECONDS);
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionManager.authenticate();
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionManager.openDeviceOperationLinks();
+            }
+        };
+
+        // act
+        connection.open(mockedQueue);
+    }
+
 
     // Tests_SRS_AMQPSIOTHUBCONNECTION_15_011: [If any exception is thrown while attempting to trigger the reactor, the function shall closeNow the connection and throw an IOException.]
     @Test (expected = IOException.class)
@@ -850,9 +890,9 @@ public class AmqpsIotHubConnectionTest {
         };
     }
 
-    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_004: [The function shall TransportException throws if the waitLock throws.]
+    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_004: [The function shall TransportException throws if the waitLatch throws.]
     @Test(expected = TransportException.class)
-    public void closeThrowsIfWaitLockThrows() throws Exception
+    public void closeThrowsIfWaitLatchThrows() throws Exception
     {
         baseExpectations();
 
@@ -1095,7 +1135,7 @@ public class AmqpsIotHubConnectionTest {
         };
     }
 
-    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_011: [The function shall call notify lock on close lock.]
+    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_011: [The function shall call countdown on close latch and open latch.]
     // Test_SRS_AMQPSIOTHUBCONNECTION_12_008: [The function shall set the reactor member variable to null.]
     @Test
     public void onReactorFinalNoReconnect() throws TransportException
@@ -1138,6 +1178,8 @@ public class AmqpsIotHubConnectionTest {
                 mockCloseLatch.countDown();
                 times = 1;
 
+                mockOpenLatch.countDown();
+                times = 1;
             }
         };
     }
@@ -1773,7 +1815,7 @@ public class AmqpsIotHubConnectionTest {
     }
 
     // Tests_SRS_AMQPSIOTHUBCONNECTION_15_041: [The connection state shall be considered CONNECTED when the sender link is open remotely.]
-    // Tests_SRS_AMQPSIOTHUBCONNECTION_21_051: [The open lock shall be notified when that the connection has been established.]
+    // Tests_SRS_AMQPSIOTHUBCONNECTION_21_051: [The open latch shall be notified when that the connection has been established.]
     // Tests_SRS_AMQPSIOTHUBCONNECTION_12_052: [The function shall call AmqpsSessionManager.onLinkRemoteOpen with the given link.]
     @Test
     public void onLinkRemoteOpen() throws TransportException
@@ -1916,7 +1958,7 @@ public class AmqpsIotHubConnectionTest {
         };
     }
 
-    //Tests_SRS_n [If the provided event object's transport holds a remote error condition object, this function shall report the associated TransportException to this object's listeners.]
+    //Tests_SRS_AMQPSIOTHUBCONNECTION_34_061 [If the provided event object's transport holds a remote error condition object, this function shall report the associated TransportException to this object's listeners.]
     @Test
     public void OnLinkRemoteCloseReportsErrorCodeIfPresent() throws TransportException
     {
@@ -2133,9 +2175,11 @@ public class AmqpsIotHubConnectionTest {
         };
     }
 
-    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_074: [If authentication has not succeeded after calling authenticate() and openLinks(), this function shall throw a retriable transport exception.]
+    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_074: [If authentication has not succeeded after calling
+    // authenticate() and openLinks(), or if all links are not open yet,
+    // this function shall throw a retryable transport exception.]
     @Test (expected = TransportException.class)
-    public void openChecksIfActuallyOpen() throws TransportException, InterruptedException
+    public void openChecksIfActuallyOpenExceptionEncountered() throws TransportException, InterruptedException
     {
         // arrange
         baseExpectations();
@@ -2168,6 +2212,48 @@ public class AmqpsIotHubConnectionTest {
         // act
         connection.open(mockedQueue);
     }
+
+    // Tests_SRS_AMQPSIOTHUBCONNECTION_12_074: [If authentication has not succeeded after calling
+    // authenticate() and openLinks(), or if all links are not open yet,
+    // this function shall throw a retryable transport exception.]
+    @Test (expected = TransportException.class)
+    public void openChecksIfActuallyOpenNotAllLinksOpened() throws TransportException, InterruptedException
+    {
+        // arrange
+        baseExpectations();
+
+        final AmqpsIotHubConnection connection = new AmqpsIotHubConnection(mockConfig);
+        connection.setListener(mockedIotHubListener);
+        Deencapsulation.setField(connection, "openLatch", mockOpenLatch);
+        Deencapsulation.setField(connection, "amqpsSessionManager", mockAmqpsSessionManager);
+
+        new StrictExpectations()
+        {
+            {
+                mockOpenLatch.await(anyLong, TimeUnit.MILLISECONDS);
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionManager.authenticate();
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                mockAmqpsSessionManager.openDeviceOperationLinks();
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "isAuthenticationOpened");
+                result = true;
+
+                Deencapsulation.invoke(mockAmqpsSessionManager, "areAllLinksOpen");
+                result = false;
+            }
+        };
+
+        // act
+        connection.open(mockedQueue);
+    }
+
 
     // Tests_SRS_AMQPSTRANSPORT_34_076: [The function throws IllegalStateException if none of the device operation object could handle the conversion.]
     @Test (expected = IllegalStateException.class)

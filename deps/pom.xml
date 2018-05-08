@@ -28,7 +28,7 @@
     </scm>
     <groupId>com.microsoft.azure.sdk.iot</groupId>
     <artifactId>iot-deps</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -39,6 +39,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcmail-jdk15on</artifactId>
+            <version>1.53</version>
+        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>

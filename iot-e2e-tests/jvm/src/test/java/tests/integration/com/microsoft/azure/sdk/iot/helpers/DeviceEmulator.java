@@ -5,6 +5,8 @@
 
 package tests.integration.com.microsoft.azure.sdk.iot.helpers;
 
+import com.microsoft.azure.sdk.iot.common.MessageAndResult;
+import com.microsoft.azure.sdk.iot.common.iothubservices.IotHubServicesCommon;
 import com.microsoft.azure.sdk.iot.device.DeviceClient;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.Device;
 import com.microsoft.azure.sdk.iot.device.DeviceTwin.DeviceMethodCallback;
@@ -19,6 +21,8 @@ import java.net.URISyntaxException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+
+import static junit.framework.TestCase.fail;
 
 /**
  * Implement a fake device to the end to end test.
@@ -65,7 +69,7 @@ public class DeviceEmulator  implements Runnable
     {
         this.deviceClient = new DeviceClient(connectionString, protocol);
         clearStatistics();
-        deviceClient.open();
+        IotHubServicesCommon.openDeviceClientWithRetry(deviceClient);
     }
 
     /**
@@ -82,7 +86,7 @@ public class DeviceEmulator  implements Runnable
     {
         this.deviceClient = new DeviceClient(connectionString, protocol, publicKeyCert, false, privateKey, false);
         clearStatistics();
-        deviceClient.open();
+        IotHubServicesCommon.openDeviceClientWithRetry(deviceClient);
     }
 
     @Override
@@ -216,6 +220,11 @@ public class DeviceEmulator  implements Runnable
         }
     }
 
+    public void sendMessageAndWaitForResponse(MessageAndResult messageAndResult, int RETRY_MILLISECONDS, int SEND_TIMEOUT_MILLISECONDS, IotHubClientProtocol protocol)
+    {
+        IotHubServicesCommon.sendMessageAndWaitForResponse(this.deviceClient, messageAndResult, RETRY_MILLISECONDS, SEND_TIMEOUT_MILLISECONDS, protocol);
+    }
+
     /**
      * Clean all previous state to start a new test.
      */
@@ -249,6 +258,8 @@ public class DeviceEmulator  implements Runnable
     {
         return deviceStatus.statusError;
     }
+
+    DeviceClient getDeviceClient() {return deviceClient;}
 
     private class DeviceStatus
     {
